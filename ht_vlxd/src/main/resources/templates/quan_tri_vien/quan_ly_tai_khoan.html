@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý tài khoản - Sài Gòn CMC</title>
+  <meta name="description" content="Quản lý toàn bộ tài khoản người dùng trong hệ thống - phân quyền, khóa, cấp lại mật khẩu.">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* ── KPI Summary Cards ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: box-shadow .2s, transform .2s;
+    }
+    .kpi-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.08); transform: translateY(-2px); }
+    .kpi-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; flex-shrink: 0;
+    }
+    .kpi-icon.blue  { background: rgba(59,130,246,.12); }
+    .kpi-icon.green { background: rgba(34,197,94,.12); }
+    .kpi-icon.red   { background: rgba(239,68,68,.12); }
+    .kpi-icon.amber { background: rgba(245,158,11,.12); }
+    .kpi-value { font-size: 28px; font-weight: 700; line-height: 1; }
+    .kpi-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    /* ── Toolbar & Filters ── */
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .search-box {
+      flex: 1;
+      min-width: 220px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0 12px;
+    }
+    .search-box input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 14px;
+      padding: 10px 0;
+      color: var(--text-dark);
+    }
+    .filter-select {
+      padding: 10px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      background: var(--bg-card);
+      font-size: 14px;
+      color: var(--text-dark);
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* ── Table enhancements ── */
+    .table td, .table th { vertical-align: middle; }
+    .avatar-circle {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px; flex-shrink: 0;
+    }
+    .user-cell { display: flex; align-items: center; gap: 10px; }
+    .user-info .u-name { font-weight: 600; font-size: 14px; }
+    .user-info .u-username { font-size: 12px; color: var(--text-muted); }
+    .action-btn-group { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+
+    /* ── Modal ── */
+    .modal {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-content {
+      background: var(--bg-card);
+      border-radius: 20px;
+      width: 100%; max-width: 560px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 20px 60px rgba(0,0,0,.2);
+      animation: modalSlide .25s ease;
+      overflow: hidden;
+    }
+    .modal-content.modal-sm { max-width: 420px; }
+    @keyframes modalSlide {
+      from { transform: translateY(-20px); opacity: 0; }
+      to   { transform: translateY(0);     opacity: 1; }
+    }
+    .modal-header {
+      padding: 20px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .modal-close {
+      background: none; border: none; font-size: 22px;
+      cursor: pointer; color: var(--text-muted);
+      line-height: 1; padding: 2px 6px; border-radius: 6px;
+      transition: background .15s;
+    }
+    .modal-close:hover { background: var(--bg-main); }
+    .modal-footer {
+      padding: 16px 24px;
+      display: flex; justify-content: flex-end; gap: 10px;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-main);
+    }
+
+    /* ── Role badge colors ── */
+    .role-QUAN_TRI_VIEN  { background: rgba(99,102,241,.15); color: #6366f1; }
+    .role-BAN_QUAN_LY    { background: rgba(139,92,246,.15); color: #8b5cf6; }
+    .role-NV_KINH_DOANH  { background: rgba(34,197,94,.15);  color: #16a34a; }
+    .role-NV_KHO         { background: rgba(20,184,166,.15); color: #0d9488; }
+    .role-NV_KE_TOAN     { background: rgba(245,158,11,.15); color: #d97706; }
+    .role-NV_GIAO_NHAN   { background: rgba(59,130,246,.15); color: #2563eb; }
+    .role-KHACH_HANG     { background: rgba(156,163,175,.15);color: #6b7280; }
+    .role-NHA_CUNG_CAP   { background: rgba(239,68,68,.15);  color: #dc2626; }
+    .role-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+    }
+
+    /* ── Toast notifications ── */
+    #toast-container {
+      position: fixed; bottom: 24px; right: 24px;
+      display: flex; flex-direction: column; gap: 8px; z-index: 9999;
+    }
+    .toast {
+      padding: 14px 18px; border-radius: 12px;
+      font-size: 14px; font-weight: 500;
+      display: flex; align-items: center; gap: 10px;
+      animation: toastIn .3s ease; max-width: 360px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.15);
+    }
+    .toast.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .toast.error   { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .toast.info    { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    @keyframes toastIn {
+      from { transform: translateX(40px); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+    .empty-state {
+      text-align: center; padding: 60px 20px; color: var(--text-muted);
+    }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .loading-row td { text-align: center; padding: 40px; color: var(--text-muted); }
+    @media (max-width: 900px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+
+  <div class="main-content">
+
+    <!-- Page header -->
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; gap:16px; flex-wrap:wrap;">
+      <div>
+        <h4 style="font-weight:700; margin-bottom:4px;">⚙️ Quản Lý Tài Khoản Hệ Thống</h4>
+        <p class="text-muted-desc">Tạo mới, phân quyền, khóa/mở khóa và cấp lại mật khẩu tài khoản người dùng.</p>
+      </div>
+      <button class="btn btn-primary" id="btn-create-account" onclick="openCreateModal()" style="white-space:nowrap;">
+        + Tạo Tài Khoản Mới
+      </button>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid" id="kpiCards">
+      <div class="kpi-card">
+        <div class="kpi-icon blue">👥</div>
+        <div>
+          <div class="kpi-value" id="kpi-total">—</div>
+          <div class="kpi-label">Tổng tài khoản</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon green">✅</div>
+        <div>
+          <div class="kpi-value" id="kpi-active">—</div>
+          <div class="kpi-label">Đang hoạt động</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon red">🔒</div>
+        <div>
+          <div class="kpi-value" id="kpi-locked">—</div>
+          <div class="kpi-label">Đã bị khóa</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon amber">⏳</div>
+        <div>
+          <div class="kpi-value" id="kpi-pending">—</div>
+          <div class="kpi-label">Chờ duyệt</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-box">
+        <span>🔍</span>
+        <input type="text" id="searchInput" placeholder="Tìm theo tên, username, email, SĐT..." oninput="filterTable()">
+      </div>
+      <select class="filter-select" id="filterRole" onchange="filterTable()">
+        <option value="">Tất cả vai trò</option>
+        <option value="QUAN_TRI_VIEN">Quản trị viên</option>
+        <option value="BAN_QUAN_LY">Ban quản lý</option>
+        <option value="NV_KINH_DOANH">NV Kinh doanh</option>
+        <option value="NV_KHO">NV Kho</option>
+        <option value="NV_KE_TOAN">NV Kế toán</option>
+        <option value="NV_GIAO_NHAN">NV Giao nhận</option>
+        <option value="KHACH_HANG">Khách hàng</option>
+        <option value="NHA_CUNG_CAP">Nhà cung cấp</option>
+      </select>
+      <select class="filter-select" id="filterStatus" onchange="filterTable()">
+        <option value="">Tất cả trạng thái</option>
+        <option value="HOAT_DONG">Hoạt động</option>
+        <option value="BI_KHOA">Bị khóa</option>
+        <option value="CHO_DUYET">Chờ duyệt</option>
+      </select>
+      <button class="btn btn-secondary btn-sm" onclick="loadUsers()" title="Làm mới danh sách">🔄 Làm mới</button>
+    </div>
+
+    <!-- Users Table -->
+    <div class="card" style="overflow:hidden;">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="card-title">Danh sách tài khoản</span>
+        <span id="user-count-label" style="font-size:13px; color:var(--text-muted);">Đang tải...</span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div class="table-responsive">
+          <table class="table" id="usersTable">
+            <thead>
+              <tr>
+                <th>Người dùng</th>
+                <th>Email</th>
+                <th>Số điện thoại</th>
+                <th style="text-align:center;">Vai trò</th>
+                <th style="text-align:center;">Trạng thái</th>
+                <th style="text-align:center; min-width:200px;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr class="loading-row"><td colspan="6">⏳ Đang tải dữ liệu từ cơ sở dữ liệu...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- .main-content -->
+</div><!-- .app-container -->
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Tạo tài khoản mới                                          -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="modal" id="createModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span style="font-weight:700; font-size:16px;">➕ Tạo Tài Khoản Người Dùng Mới</span>
+      <button class="modal-close" onclick="closeModal('createModal')">&times;</button>
+    </div>
+    <form onsubmit="handleCreateUser(event)">
+      <div class="card-body" style="display:flex; flex-direction:column; gap:16px;">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Tên đăng nhập <span style="color:red">*</span></label>
+            <input type="text" class="form-control" id="new-username" placeholder="vd: nvkho02" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Họ và tên <span style="color:red">*</span></label>
+            <input type="text" class="form-control" id="new-hoten" placeholder="Nguyễn Văn B" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Số điện thoại</label>
+            <input type="tel" class="form-control" id="new-sdt" placeholder="090xxxxxxx">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" id="new-email" placeholder="nhanvien@vlxd.com">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Địa chỉ</label>
+          <input type="text" class="form-control" id="new-diachi" placeholder="Số nhà, đường, quận/huyện, tỉnh/thành">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gán vai trò <span style="color:red">*</span></label>
+          <select class="form-control" id="new-role" required>
+            <option value="KHACH_HANG">Khách hàng</option>
+            <option value="NV_KINH_DOANH">Nhân viên Kinh doanh</option>
+            <option value="NV_KHO">Nhân viên Kho (Thủ kho)</option>
+            <option value="NV_KE_TOAN">Nhân viên Kế toán</option>
+            <option value="NV_GIAO_NHAN">Nhân viên Giao nhận</option>
+            <option value="BAN_QUAN_LY">Ban Quản lý</option>
+            <option value="QUAN_TRI_VIEN">Quản trị viên</option>
+            <option value="NHA_CUNG_CAP">Nhà cung cấp</option>
+          </select>
+        </div>
+        <div style="background:var(--bg-main); padding:12px 14px; border-radius:10px; border:1px solid var(--border-color); font-size:12px; color:var(--text-muted);">
+          🔑 Mật khẩu mặc định ban đầu: <strong style="color:var(--text-dark);">Admin@123</strong> — người dùng phải đổi mật khẩu sau khi đăng nhập lần đầu.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('createModal')">Hủy bỏ</button>
+        <button type="submit" class="btn btn-primary" id="btn-create-submit">✅ Xác nhận tạo tài khoản</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Chỉnh sửa / đổi vai trò                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="modal" id="editModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span style="font-weight:700; font-size:16px;">✏️ Chỉnh sửa tài khoản: <span id="edit-display-name"></span></span>
+      <button class="modal-close" onclick="closeModal('editModal')">&times;</button>
+    </div>
+    <form onsubmit="handleUpdateUser(event)">
+      <input type="hidden" id="edit-userId">
+      <div class="card-body" style="display:flex; flex-direction:column; gap:16px;">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Họ và tên <span style="color:red">*</span></label>
+            <input type="text" class="form-control" id="edit-hoten" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Số điện thoại</label>
+            <input type="tel" class="form-control" id="edit-sdt">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-control" id="edit-email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Địa chỉ</label>
+          <input type="text" class="form-control" id="edit-diachi">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vai trò</label>
+          <select class="form-control" id="edit-role">
+            <option value="KHACH_HANG">Khách hàng</option>
+            <option value="NV_KINH_DOANH">Nhân viên Kinh doanh</option>
+            <option value="NV_KHO">Nhân viên Kho (Thủ kho)</option>
+            <option value="NV_KE_TOAN">Nhân viên Kế toán</option>
+            <option value="NV_GIAO_NHAN">Nhân viên Giao nhận</option>
+            <option value="BAN_QUAN_LY">Ban Quản lý</option>
+            <option value="QUAN_TRI_VIEN">Quản trị viên</option>
+            <option value="NHA_CUNG_CAP">Nhà cung cấp</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Hủy bỏ</button>
+        <button type="submit" class="btn btn-primary">💾 Lưu thay đổi</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Xác nhận hành động (Khóa / Xóa)                            -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="modal" id="confirmModal">
+  <div class="modal-content modal-sm">
+    <div class="modal-header">
+      <span style="font-weight:700; font-size:16px;" id="confirm-title">Xác nhận thao tác</span>
+      <button class="modal-close" onclick="closeModal('confirmModal')">&times;</button>
+    </div>
+    <div class="card-body">
+      <p id="confirm-message" style="font-size:14px; color:var(--text-dark); margin-bottom:0;"></p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeModal('confirmModal')">Hủy</button>
+      <button type="button" id="confirm-action-btn" class="btn btn-danger" onclick="executeConfirmedAction()">Xác nhận</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<div th:replace="~{bo_cuc/footer :: footer}"></div>
+
+<script>
+  // ─────────────────────────────────────────────────────────────────────────
+  // State
+  let allUsers = [];
+  let pendingAction = null;   // { type: 'lock'|'delete', userId, username }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Bootstrap: load data on page ready
+  document.addEventListener('DOMContentLoaded', function () {
+    loadUsers();
+    loadSummary();
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Toast helper
+  function showToast(msg, type = 'info') {
+    const c = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    t.className = 'toast ' + type;
+    const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+    t.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Role display helper
+  const ROLE_LABELS = {
+    QUAN_TRI_VIEN: 'Quản trị viên',
+    BAN_QUAN_LY:   'Ban quản lý',
+    NV_KINH_DOANH:'NV Kinh doanh',
+    NV_KHO:        'NV Kho',
+    NV_KE_TOAN:    'NV Kế toán',
+    NV_GIAO_NHAN:  'NV Giao nhận',
+    KHACH_HANG:    'Khách hàng',
+    NHA_CUNG_CAP:  'Nhà cung cấp',
+  };
+
+  const AVATAR_COLORS = [
+    '#6366f1','#8b5cf6','#ec4899','#f59e0b',
+    '#10b981','#3b82f6','#14b8a6','#f97316'
+  ];
+
+  function getAvatarColor(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+  }
+
+  function getRoleBadge(role) {
+    const label = ROLE_LABELS[role] || role;
+    return `<span class="role-badge role-${role}">${label}</span>`;
+  }
+
+  function getStatusBadge(status) {
+    if (status === 'HOAT_DONG') return '<span class="badge badge-green">Hoạt động</span>';
+    if (status === 'BI_KHOA')   return '<span class="badge badge-red">Bị khóa</span>';
+    if (status === 'CHO_DUYET') return '<span class="badge badge-orange">Chờ duyệt</span>';
+    return `<span class="badge">${status}</span>`;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Load summary KPI
+  async function loadSummary() {
+    try {
+      const res = await fetch('/api/admin/summary');
+      if (!res.ok) return;
+      const d = await res.json();
+      document.getElementById('kpi-total').textContent   = d.total   ?? 0;
+      document.getElementById('kpi-active').textContent  = d.active  ?? 0;
+      document.getElementById('kpi-locked').textContent  = d.locked  ?? 0;
+      document.getElementById('kpi-pending').textContent = d.pending ?? 0;
+    } catch (e) { /* silent */ }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Load user list
+  async function loadUsers() {
+    document.getElementById('usersTableBody').innerHTML =
+      `<tr class="loading-row"><td colspan="6">⏳ Đang tải dữ liệu...</td></tr>`;
+
+    try {
+      const res = await fetch('/api/admin/users');
+      if (!res.ok) throw new Error('API error');
+      allUsers = await res.json();
+      renderTable(allUsers);
+    } catch (e) {
+      document.getElementById('usersTableBody').innerHTML =
+        `<tr class="loading-row"><td colspan="6" style="color:#dc2626;">❌ Không thể tải dữ liệu. Vui lòng thử lại.</td></tr>`;
+    }
+    loadSummary();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render table
+  function renderTable(users) {
+    const tbody = document.getElementById('usersTableBody');
+    document.getElementById('user-count-label').textContent = `Tổng: ${users.length} tài khoản`;
+
+    if (users.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6">
+        <div class="empty-state">
+          <div class="empty-icon">👤</div>
+          <p>Không tìm thấy tài khoản nào phù hợp.</p>
+        </div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = users.map(u => {
+      const initials = (u.hoTen || u.username || '?').split(' ').map(w => w[0]).slice(-2).join('').toUpperCase();
+      const color = getAvatarColor(u.hoTen || u.username);
+      const isLocked = u.trangThai === 'BI_KHOA';
+      const lockLabel = isLocked ? '🔓 Mở khóa' : '🔒 Khóa';
+      const lockClass = isLocked ? 'btn-success' : 'btn-danger';
+
+      return `
+      <tr id="user-row-${u.id}">
+        <td>
+          <div class="user-cell">
+            <div class="avatar-circle" style="background:${color}20; color:${color};">${initials}</div>
+            <div class="user-info">
+              <div class="u-name">${u.hoTen}</div>
+              <div class="u-username">@${u.username}</div>
+            </div>
+          </div>
+        </td>
+        <td style="font-size:13px;">${u.email || '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td style="font-size:13px;">${u.soDienThoai || '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td style="text-align:center;">${getRoleBadge(u.role)}</td>
+        <td style="text-align:center;" id="status-cell-${u.id}">${getStatusBadge(u.trangThai)}</td>
+        <td>
+          <div class="action-btn-group">
+            <button class="btn btn-secondary btn-sm" onclick="openEditModal(${u.id})" title="Chỉnh sửa thông tin">✏️</button>
+            <button class="btn btn-secondary btn-sm" onclick="confirmResetPassword(${u.id}, '${u.username}')" title="Cấp lại mật khẩu">🔑</button>
+            <button class="btn ${lockClass} btn-sm" id="lock-btn-${u.id}" onclick="confirmToggleLock(${u.id}, '${u.username}', ${isLocked})">${lockLabel}</button>
+            <button class="btn btn-danger btn-sm" onclick="confirmDelete(${u.id}, '${u.username}')" title="Xóa tài khoản">🗑️</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Filter
+  function filterTable() {
+    const q   = document.getElementById('searchInput').value.toLowerCase();
+    const rF  = document.getElementById('filterRole').value;
+    const sF  = document.getElementById('filterStatus').value;
+
+    const filtered = allUsers.filter(u => {
+      const matchQ = !q || [u.hoTen, u.username, u.email, u.soDienThoai].some(v => v && v.toLowerCase().includes(q));
+      const matchR = !rF || u.role === rF;
+      const matchS = !sF || u.trangThai === sF;
+      return matchQ && matchR && matchS;
+    });
+
+    renderTable(filtered);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Modal helpers
+  function openModal(id)  { document.getElementById(id).style.display = 'flex'; }
+  function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CREATE user
+  function openCreateModal() { openModal('createModal'); }
+
+  async function handleCreateUser(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-create-submit');
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang tạo...';
+
+    const body = {
+      username:    document.getElementById('new-username').value.trim(),
+      hoTen:       document.getElementById('new-hoten').value.trim(),
+      email:       document.getElementById('new-email').value.trim(),
+      soDienThoai: document.getElementById('new-sdt').value.trim(),
+      diaChi:      document.getElementById('new-diachi').value.trim(),
+      role:        document.getElementById('new-role').value,
+    };
+
+    try {
+      const res = await fetch('/api/admin/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const text = await res.text();
+      if (res.ok) {
+        showToast(JSON.parse(text).message || 'Tạo tài khoản thành công!', 'success');
+        closeModal('createModal');
+        e.target.reset();
+        loadUsers();
+      } else {
+        showToast(text, 'error');
+      }
+    } catch (err) {
+      showToast('Lỗi kết nối máy chủ.', 'error');
+    }
+
+    btn.disabled = false;
+    btn.textContent = '✅ Xác nhận tạo tài khoản';
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // EDIT user
+  function openEditModal(userId) {
+    const u = allUsers.find(x => x.id === userId);
+    if (!u) return;
+    document.getElementById('edit-userId').value  = u.id;
+    document.getElementById('edit-display-name').textContent = u.hoTen;
+    document.getElementById('edit-hoten').value   = u.hoTen;
+    document.getElementById('edit-email').value   = u.email || '';
+    document.getElementById('edit-sdt').value     = u.soDienThoai || '';
+    document.getElementById('edit-diachi').value  = u.diaChi || '';
+    document.getElementById('edit-role').value    = u.role;
+    openModal('editModal');
+  }
+
+  async function handleUpdateUser(e) {
+    e.preventDefault();
+    const userId = document.getElementById('edit-userId').value;
+    const body = {
+      userId,
+      hoTen:       document.getElementById('edit-hoten').value.trim(),
+      email:       document.getElementById('edit-email').value.trim(),
+      soDienThoai: document.getElementById('edit-sdt').value.trim(),
+      diaChi:      document.getElementById('edit-diachi').value.trim(),
+      role:        document.getElementById('edit-role').value,
+    };
+
+    try {
+      // Update profile info
+      const resInfo = await fetch('/api/admin/users/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      // Change role separately
+      const resRole = await fetch('/api/admin/users/change-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, role: body.role })
+      });
+
+      if (resInfo.ok) {
+        showToast('Cập nhật tài khoản thành công!', 'success');
+        closeModal('editModal');
+        loadUsers();
+      } else {
+        const text = await resInfo.text();
+        showToast(text, 'error');
+      }
+    } catch (err) {
+      showToast('Lỗi kết nối máy chủ.', 'error');
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RESET PASSWORD
+  function confirmResetPassword(userId, username) {
+    pendingAction = { type: 'reset', userId, username };
+    document.getElementById('confirm-title').textContent = '🔑 Cấp lại mật khẩu';
+    document.getElementById('confirm-message').innerHTML =
+      `Bạn có muốn đặt lại mật khẩu của tài khoản <strong>${username}</strong> về mặc định <strong>Admin@123</strong>?<br>
+      <small style="color:var(--text-muted)">Người dùng sẽ cần đổi mật khẩu sau khi đăng nhập.</small>`;
+    document.getElementById('confirm-action-btn').className = 'btn btn-primary';
+    document.getElementById('confirm-action-btn').textContent = '🔑 Xác nhận đặt lại';
+    openModal('confirmModal');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TOGGLE LOCK
+  function confirmToggleLock(userId, username, isLocked) {
+    pendingAction = { type: 'lock', userId, username };
+    if (isLocked) {
+      document.getElementById('confirm-title').textContent = '🔓 Mở khóa tài khoản';
+      document.getElementById('confirm-message').innerHTML =
+        `Mở khóa tài khoản <strong>${username}</strong>? Người dùng sẽ có thể đăng nhập lại ngay.`;
+      document.getElementById('confirm-action-btn').className = 'btn btn-success';
+      document.getElementById('confirm-action-btn').textContent = '🔓 Mở khóa';
+    } else {
+      document.getElementById('confirm-title').textContent = '🔒 Khóa tài khoản';
+      document.getElementById('confirm-message').innerHTML =
+        `Khóa tài khoản <strong>${username}</strong>? Tài khoản bị khóa sẽ không thể đăng nhập vào hệ thống.`;
+      document.getElementById('confirm-action-btn').className = 'btn btn-danger';
+      document.getElementById('confirm-action-btn').textContent = '🔒 Xác nhận khóa';
+    }
+    openModal('confirmModal');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // DELETE
+  function confirmDelete(userId, username) {
+    pendingAction = { type: 'delete', userId, username };
+    document.getElementById('confirm-title').textContent = '🗑️ Xóa tài khoản';
+    document.getElementById('confirm-message').innerHTML =
+      `Xóa vĩnh viễn tài khoản <strong>${username}</strong>?<br>
+      <small style="color:#dc2626;">⚠️ Hành động này không thể hoàn tác. Nếu tài khoản có dữ liệu giao dịch, hệ thống sẽ từ chối và gợi ý khóa thay thế.</small>`;
+    document.getElementById('confirm-action-btn').className = 'btn btn-danger';
+    document.getElementById('confirm-action-btn').textContent = '🗑️ Xác nhận xóa';
+    openModal('confirmModal');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Execute confirmed action
+  async function executeConfirmedAction() {
+    if (!pendingAction) return;
+    closeModal('confirmModal');
+    const { type, userId, username } = pendingAction;
+    pendingAction = null;
+
+    try {
+      let res, text;
+
+      if (type === 'reset') {
+        res = await fetch('/api/admin/users/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        text = await res.text();
+        showToast(text, res.ok ? 'success' : 'error');
+
+      } else if (type === 'lock') {
+        res = await fetch('/api/admin/users/toggle-lock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(data.message, 'success');
+          loadUsers();
+        } else {
+          showToast(data.message || data, 'error');
+        }
+
+      } else if (type === 'delete') {
+        res = await fetch('/api/admin/users/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        text = await res.text();
+        if (res.ok) {
+          showToast(text, 'success');
+          loadUsers();
+        } else {
+          showToast(text, 'error');
+        }
+      }
+    } catch (err) {
+      showToast('Lỗi kết nối máy chủ.', 'error');
+    }
+  }
+
+  // Close modal on backdrop click
+  document.querySelectorAll('.modal').forEach(m => {
+    m.addEventListener('click', function(e) {
+      if (e.target === this) closeModal(this.id);
+    });
+  });
+</script>
+
+</body>
+</html>

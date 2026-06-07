@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard tổng quan - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/custom-alert.js"></script>
+  <style>
+    .approval-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .approval-item:last-child {
+      border-bottom: none;
+    }
+    .progress-bar-container {
+      width: 100%;
+      height: 8px;
+      background-color: var(--border-color);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background-color: var(--kh-primary);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+  
+  <div class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div>
+        <h4 style="font-weight: 700;">Dashboard Giám Sát Kinh Doanh</h4>
+        <p class="text-muted-desc">Báo cáo tóm tắt các chỉ số hiệu suất doanh thu, tồn kho và công nợ toàn hệ thống.</p>
+      </div>
+      <span class="badge badge-purple" style="padding: 6px 16px; font-size: 13px;">Kỳ báo cáo: Tháng này</span>
+    </div>
+
+    <!-- Executive KPIs -->
+    <div class="dashboard-grid">
+      <div class="stat-card" style="border-top: 4px solid var(--kh-primary);">
+        <div class="stat-card-title">Tổng doanh thu lũy kế</div>
+        <div class="stat-card-value" style="color: var(--kh-dark);" id="kpi-revenue">0đ</div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" style="width: 0%; background-color: var(--kh-primary);" id="kpi-revenue-progress"></div>
+        </div>
+        <div class="stat-card-desc" style="margin-top: 8px;" id="kpi-revenue-desc">Đạt 0% so với chỉ tiêu tháng</div>
+      </div>
+      
+      <div class="stat-card" style="border-top: 4px solid var(--kd-primary);">
+        <div class="stat-card-title">Số dư nợ khách hàng (Phải Thu)</div>
+        <div class="stat-card-value" style="color: var(--kd-dark);" id="kpi-debts">0đ</div>
+        <div class="stat-card-desc">Tổng dư nợ các đơn chưa hoàn tất thanh toán</div>
+      </div>
+
+      <div class="stat-card" style="border-top: 4px solid var(--kho-primary);">
+        <div class="stat-card-title">Giá trị tồn kho quy đổi</div>
+        <div class="stat-card-value" style="color: var(--kho-dark);" id="kpi-inventory">0đ</div>
+        <div class="stat-card-desc">Tính trên giá bán lẻ hiện hành</div>
+      </div>
+    </div>
+
+    <!-- Double Column layout for Approvals and Quick view -->
+    <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; margin-bottom: 30px;">
+      
+      <!-- List of Orders waiting for action -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Đơn hàng mới tạo & Lộ trình xuất kho</span>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Mã Đơn</th>
+                <th>Khách Hàng</th>
+                <th>Ngày Đặt</th>
+                <th class="text-right">Tổng Tiền</th>
+                <th>Trạng Thái</th>
+              </tr>
+            </thead>
+            <tbody id="orders-tbody">
+              <tr>
+                <td colspan="5" style="text-align: center; padding: 20px; color: var(--text-muted);">Đang tải dữ liệu đơn hàng...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Approvals Center -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Trung tâm phê duyệt yêu cầu</span>
+        </div>
+        <div class="card-body" style="padding: 0;" id="approvals-container">
+          <div style="padding: 20px; text-align: center; color: var(--text-muted);">Đang tải danh sách chờ duyệt...</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div th:replace="~{bo_cuc/footer :: footer}"></div>
+
+    <script th:inline="javascript">
+      // Format money Helper
+      function formatVND(val) {
+        if (!val && val !== 0) return '0đ';
+        return val.toLocaleString('vi-VN') + 'đ';
+      }
+
+      function getStatusBadgeClass(status) {
+        switch(status) {
+          case 'HOAN_THANH': return 'badge-green';
+          case 'DA_XAC_NHAN':
+          case 'DANG_GIAO': return 'badge-teal';
+          case 'CHO_XAC_NHAN': return 'badge-blue';
+          case 'DA_HUY':
+          case 'TU_CHOI': return 'badge-red';
+          default: return 'badge-secondary';
+        }
+      }
+
+      function getStatusName(status) {
+        switch(status) {
+          case 'HOAN_THANH': return 'Hoàn Thành';
+          case 'DA_XAC_NHAN': return 'Đã Xác Nhận';
+          case 'DANG_GIAO': return 'Đang Giao';
+          case 'CHO_XAC_NHAN': return 'Chờ Xác Nhận';
+          case 'DA_HUY': return 'Đã Hủy';
+          case 'TU_CHOI': return 'Từ Chối';
+          default: return status;
+        }
+      }
+
+      // Load Statistics Dashboard
+      async function loadSummary() {
+        try {
+          const res = await fetch('/api/management/summary');
+          if (res.ok) {
+            const data = await res.json();
+            document.getElementById('kpi-revenue').innerText = formatVND(data.tongDoanhThu);
+            document.getElementById('kpi-debts').innerText = formatVND(data.tongDuNo);
+            document.getElementById('kpi-inventory').innerText = formatVND(data.giaTriTonKho);
+            
+            const pct = Math.min(100, Math.round(data.phanTramDat));
+            document.getElementById('kpi-revenue-progress').style.width = pct + '%';
+            document.getElementById('kpi-revenue-desc').innerText = `Đạt ${data.phanTramDat}% so với chỉ tiêu tháng (${formatVND(data.mucTieu)})`;
+          }
+        } catch (error) {
+          console.error("Lỗi khi tải báo cáo tổng quan:", error);
+        }
+      }
+
+      // Load Orders
+      async function loadOrders() {
+        try {
+          const res = await fetch('/api/management/orders');
+          if (res.ok) {
+            const data = await res.json();
+            const tbody = document.getElementById('orders-tbody');
+            if (data.length === 0) {
+              tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px;">Không có đơn hàng nào</td></tr>`;
+              return;
+            }
+            let html = '';
+            // Display top 8 newest orders to avoid overflow
+            const limit = Math.min(8, data.length);
+            for (let i = 0; i < limit; i++) {
+              const dh = data[i];
+              html += `
+                <tr>
+                  <td style="font-weight: 600;">${dh.maDonHang}</td>
+                  <td>${dh.khachHangTen}</td>
+                  <td>${dh.ngayDat}</td>
+                  <td class="text-right" style="font-weight: 600;">${formatVND(dh.tongTien)}</td>
+                  <td><span class="badge ${getStatusBadgeClass(dh.trangThai)}">${getStatusName(dh.trangThai)}</span></td>
+                </tr>
+              `;
+            }
+            tbody.innerHTML = html;
+          }
+        } catch (error) {
+          console.error("Lỗi khi tải đơn hàng:", error);
+        }
+      }
+
+      // Load Pending Approvals
+      async function loadPendingApprovals() {
+        try {
+          const res = await fetch('/api/management/pending-approvals');
+          if (res.ok) {
+            const data = await res.json();
+            const container = document.getElementById('approvals-container');
+            if (data.length === 0) {
+              container.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-muted); font-size: 13px;">🎉 Hiện tại không có yêu cầu nào chờ phê duyệt!</div>`;
+              return;
+            }
+            let html = '';
+            data.forEach(item => {
+              let actionButtons = '';
+              if (item.type === 'RETURN') {
+                actionButtons = `
+                  <button class="btn btn-success btn-sm" onclick="approveReturn('${item.targetKey}')">Duyệt</button>
+                  <button class="btn btn-danger btn-sm" onclick="rejectReturn('${item.targetKey}')">Từ Chối</button>
+                `;
+              } else if (item.type === 'CONTRACT') {
+                actionButtons = `
+                  <button class="btn btn-success btn-sm" onclick="approveContract('${item.targetKey}')">Kích Hoạt</button>
+                `;
+              } else if (item.type === 'REPORT') {
+                actionButtons = `
+                  <button class="btn btn-success btn-sm" onclick="approveReport(${item.targetKey})">Duyệt</button>
+                `;
+              } else if (item.type === 'INVENTORY_SLIP') {
+                actionButtons = `
+                  <button class="btn btn-success btn-sm" onclick="approveInventorySlip('${item.targetKey}')">Phê Duyệt</button>
+                `;
+              }
+
+              html += `
+                <div class="approval-item" id="approval-item-${item.type}-${item.id}">
+                  <div style="flex: 1; padding-right: 12px;">
+                    <div style="font-size: 13px; font-weight: 600;">${item.title}</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${item.description}</div>
+                  </div>
+                  <div class="flex-gap-8" style="flex-shrink: 0;">
+                    ${actionButtons}
+                  </div>
+                </div>
+              `;
+            });
+            container.innerHTML = html;
+          }
+        } catch (error) {
+          console.error("Lỗi khi tải phê duyệt:", error);
+        }
+      }
+
+      // Approval Actions API Calls
+      function approveContract(maHopDong) {
+        showConfirm(`Xác nhận kích hoạt hợp đồng ${maHopDong}?`, async function() {
+          try {
+            const res = await fetch('/api/management/contracts/approve', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ maHopDong })
+            });
+            if (res.ok) {
+              alert(`Hợp đồng ${maHopDong} đã hoạt động!`);
+              refreshData();
+            } else {
+              alert('Có lỗi xảy ra khi duyệt hợp đồng.');
+            }
+          } catch (error) {
+            alert('Lỗi kết nối server.');
+          }
+        });
+      }
+
+      function approveReturn(maDoiTra) {
+        showConfirm(`Xác nhận phê duyệt yêu cầu đổi trả ${maDoiTra}?`, async function() {
+          try {
+            const res = await fetch('/api/management/returns/approve', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ maDoiTra })
+            });
+            if (res.ok) {
+              alert(`Yêu cầu đổi trả ${maDoiTra} đã được thông qua và điều chỉnh công nợ!`);
+              refreshData();
+            } else {
+              alert('Có lỗi xảy ra khi duyệt yêu cầu.');
+            }
+          } catch (error) {
+            alert('Lỗi kết nối server.');
+          }
+        });
+      }
+
+      function rejectReturn(maDoiTra) {
+        showConfirm(`Xác nhận từ chối yêu cầu đổi trả ${maDoiTra}?`, async function() {
+          try {
+            const res = await fetch('/api/management/returns/reject', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ maDoiTra })
+            });
+            if (res.ok) {
+              alert(`Đã từ chối yêu cầu đổi trả ${maDoiTra}.`);
+              refreshData();
+            } else {
+              alert('Có lỗi xảy ra khi từ chối.');
+            }
+          } catch (error) {
+            alert('Lỗi kết nối server.');
+          }
+        });
+      }
+
+      function approveReport(reportId) {
+        showConfirm('Xác nhận phê duyệt báo cáo này?', async function() {
+          try {
+            const res = await fetch('/api/management/reports/approve', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reportId: reportId.toString() })
+            });
+            if (res.ok) {
+              alert('Báo cáo đã được duyệt thành công!');
+              refreshData();
+            } else {
+              alert('Có lỗi xảy ra khi duyệt báo cáo.');
+            }
+          } catch (error) {
+            alert('Lỗi kết nối server.');
+          }
+        });
+      }
+
+      function approveInventorySlip(maPhieu) {
+        showConfirm(`Xác nhận duyệt phiếu kho ${maPhieu}? Lượng tồn kho thực tế sẽ thay đổi tương ứng.`, async function() {
+          try {
+            const res = await fetch('/api/management/inventory-slips/approve', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ maPhieu })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              alert(data.message || 'Phê duyệt phiếu kho thành công!');
+              refreshData();
+            } else {
+              alert('Có lỗi xảy ra khi duyệt phiếu kho.');
+            }
+          } catch (error) {
+            alert('Lỗi kết nối server.');
+          }
+        });
+      function refreshData() {
+        loadSummary();
+        loadOrders();
+        loadPendingApprovals();
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        refreshData();
+      });
+    </script>
+  </div>
+</div>
+
+</body>
+</html>

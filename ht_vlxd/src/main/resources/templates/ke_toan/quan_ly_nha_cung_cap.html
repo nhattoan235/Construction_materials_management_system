@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý nhà cung cấp - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:2000; justify-content:center; align-items:center; }
+    .modal-overlay.show { display:flex; }
+    .modal-box { background:var(--bg-card); border-radius:12px; padding:28px; max-width:580px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,.3); max-height:90vh; overflow-y:auto; }
+    .modal-box h5 { font-size:17px; font-weight:700; margin-bottom:20px; }
+    .ncc-card { border:1px solid var(--border-color); border-radius:10px; padding:18px; transition: box-shadow 0.2s, border-color 0.2s; cursor:pointer; }
+    .ncc-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.1); border-color: var(--kt-primary); }
+    .ncc-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:16px; }
+    .loading-spinner { text-align:center; padding:40px; color:var(--text-muted); font-size:14px; }
+  </style>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+
+  <div class="main-content">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+      <div>
+        <h4 style="font-weight:700;">Quản Lý Nhà Cung Cấp</h4>
+        <p class="text-muted-desc">Danh sách các nhà cung cấp vật liệu xây dựng và thông tin liên hệ.</p>
+      </div>
+      <button class="btn btn-warning" onclick="openAddModal()">+ Thêm Nhà Cung Cấp</button>
+    </div>
+
+    <!-- Search + filter bar -->
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-body" style="padding:12px 16px;">
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <input type="text" id="ncc-search" class="form-control" placeholder="Tìm kiếm theo tên, mã NCC, MST..." style="flex:1; min-width:220px;" oninput="filterNCC()">
+          <select class="form-control" id="ncc-status-filter" style="width:160px;" onchange="filterNCC()">
+            <option value="">Tất cả trạng thái</option>
+            <option value="HOAT_DONG">Đang hoạt động</option>
+            <option value="DUNG_HOP_TAC">Dừng hợp tác</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="loadNCC()">🔄 Làm mới</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary stats -->
+    <div class="dashboard-grid" style="margin-bottom:20px;" id="ncc-stats">
+      <div class="stat-card" style="border-left:4px solid var(--kt-primary);">
+        <div class="stat-card-title">Tổng Nhà Cung Cấp</div>
+        <div class="stat-card-value" id="stat-total-ncc" style="color:var(--kt-dark);">—</div>
+        <div class="stat-card-desc">Đối tác đã đăng ký</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid #16a34a;">
+        <div class="stat-card-title">Đang Hoạt Động</div>
+        <div class="stat-card-value" id="stat-active-ncc" style="color:#16a34a;">—</div>
+        <div class="stat-card-desc">Nhà cung cấp hợp tác</div>
+      </div>
+    </div>
+
+    <!-- NCC Grid or Table view -->
+    <div class="tabs-container" style="margin-bottom:16px;">
+      <button class="tab-btn active" onclick="setView('grid')" id="btn-view-grid">🔲 Thẻ</button>
+      <button class="tab-btn" onclick="setView('table')" id="btn-view-table">☰ Bảng</button>
+    </div>
+
+    <!-- Loading -->
+    <div id="ncc-loading" class="loading-spinner">⏳ Đang tải danh sách nhà cung cấp...</div>
+
+    <!-- Grid View -->
+    <div id="ncc-grid-view" class="ncc-grid" style="display:none;"></div>
+
+    <!-- Table View -->
+    <div id="ncc-table-view" style="display:none;">
+      <div class="card">
+        <div class="card-body" style="padding:0;">
+          <table class="table" id="ncc-table">
+            <thead>
+              <tr>
+                <th>Mã NCC</th>
+                <th>Tên Nhà Cung Cấp</th>
+                <th>Người Liên Hệ</th>
+                <th>Điện Thoại</th>
+                <th>Email</th>
+                <th>MST</th>
+                <th>Trạng Thái</th>
+                <th style="text-align:center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="ncc-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty -->
+    <div id="ncc-empty" style="display:none; text-align:center; padding:60px; color:var(--text-muted);">
+      <div style="font-size:48px; margin-bottom:12px;">🏭</div>
+      <div>Chưa có nhà cung cấp nào. Nhấn "+ Thêm Nhà Cung Cấp" để bắt đầu.</div>
+    </div>
+
+    <div th:replace="~{bo_cuc/footer :: footer}"></div>
+  </div>
+</div>
+
+<!-- Modal: Thêm/sửa NCC -->
+<div class="modal-overlay" id="ncc-modal">
+  <div class="modal-box">
+    <h5 id="ncc-modal-title">➕ Thêm Nhà Cung Cấp Mới</h5>
+    <form onsubmit="handleSaveNCC(event)" id="ncc-form">
+      <input type="hidden" id="ncc-id">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Mã NCC <span style="color:#dc2626;">*</span></label>
+          <input type="text" id="ncc-ma" class="form-control" placeholder="VD: NCC-001" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tên Nhà Cung Cấp <span style="color:#dc2626;">*</span></label>
+          <input type="text" id="ncc-ten" class="form-control" placeholder="VD: Công ty Thép Hòa Phát" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Mã Số Thuế</label>
+          <input type="text" id="ncc-mst" class="form-control" placeholder="0300000001">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Người Liên Hệ</label>
+          <input type="text" id="ncc-nlh" class="form-control" placeholder="Tên người liên hệ">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Số Điện Thoại</label>
+          <input type="text" id="ncc-sdt" class="form-control" placeholder="0901000000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="ncc-email" class="form-control" placeholder="contact@hoaphat.com">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Địa Chỉ</label>
+        <textarea class="form-control" id="ncc-dia-chi" rows="2" placeholder="Địa chỉ nhà cung cấp..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ghi Chú</label>
+        <textarea class="form-control" id="ncc-ghi-chu" rows="2" placeholder="Điều khoản hợp tác, thông tin thêm..."></textarea>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+        <button type="submit" class="btn btn-warning" id="ncc-save-btn">💾 Lưu Nhà Cung Cấp</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Chi tiết NCC -->
+<div class="modal-overlay" id="ncc-detail-modal">
+  <div class="modal-box" style="max-width:500px;">
+    <h5 id="ncc-detail-name">Chi tiết nhà cung cấp</h5>
+    <div id="ncc-detail-content"></div>
+    <div style="display:flex; gap:10px; margin-top:20px; justify-content:flex-end;">
+      <button class="btn btn-secondary btn-sm" onclick="closeDetailModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let allNCC = [];
+  let currentView = 'grid';
+
+  function setView(view) {
+    currentView = view;
+    document.getElementById('btn-view-grid').classList.toggle('active', view === 'grid');
+    document.getElementById('btn-view-table').classList.toggle('active', view === 'table');
+    document.getElementById('ncc-grid-view').style.display = view === 'grid' ? 'grid' : 'none';
+    document.getElementById('ncc-table-view').style.display = view === 'table' ? 'block' : 'none';
+  }
+
+  function loadNCC() {
+    document.getElementById('ncc-loading').style.display = 'block';
+    document.getElementById('ncc-grid-view').style.display = 'none';
+    document.getElementById('ncc-table-view').style.display = 'none';
+    document.getElementById('ncc-empty').style.display = 'none';
+
+    fetch('/api/accounting/suppliers')
+      .then(r => r.json())
+      .then(data => {
+        allNCC = data;
+        document.getElementById('ncc-loading').style.display = 'none';
+        document.getElementById('stat-total-ncc').textContent = data.length;
+        document.getElementById('stat-active-ncc').textContent = data.filter(n => n.trangThai === 'HOAT_DONG').length;
+        renderNCC(data);
+      }).catch(() => {
+        document.getElementById('ncc-loading').innerHTML = '❌ Lỗi tải dữ liệu.';
+      });
+  }
+
+  function filterNCC() {
+    const q = document.getElementById('ncc-search').value.toLowerCase();
+    const st = document.getElementById('ncc-status-filter').value;
+    const filtered = allNCC.filter(n =>
+      (!q || n.tenNcc.toLowerCase().includes(q) || n.maNcc.toLowerCase().includes(q) ||
+        (n.maSoThue || '').toLowerCase().includes(q) ||
+        (n.nguoiLienHe || '').toLowerCase().includes(q)) &&
+      (!st || n.trangThai === st)
+    );
+    renderNCC(filtered);
+  }
+
+  function renderNCC(data) {
+    if (data.length === 0) {
+      document.getElementById('ncc-empty').style.display = 'block';
+      document.getElementById('ncc-grid-view').style.display = 'none';
+      document.getElementById('ncc-table-view').style.display = 'none';
+      return;
+    }
+    document.getElementById('ncc-empty').style.display = 'none';
+
+    const statusHtml = (st) => st === 'HOAT_DONG'
+      ? '<span class="badge badge-green">Đang hoạt động</span>'
+      : '<span class="badge badge-orange">Dừng hợp tác</span>';
+
+    // Render grid
+    document.getElementById('ncc-grid-view').innerHTML = data.map(n => `
+      <div class="ncc-card" onclick="openDetailModal(${n.id})">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+          <div>
+            <div style="font-weight:700; font-size:15px;">${n.tenNcc}</div>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Mã: ${n.maNcc}</div>
+          </div>
+          ${statusHtml(n.trangThai)}
+        </div>
+        <div style="font-size:13px; display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          <div><span style="color:var(--text-muted);">📞</span> ${n.soDienThoai || '—'}</div>
+          <div><span style="color:var(--text-muted);">📧</span> ${n.email || '—'}</div>
+          <div><span style="color:var(--text-muted);">👤</span> ${n.nguoiLienHe || '—'}</div>
+          <div><span style="color:var(--text-muted);">🔑 MST:</span> ${n.maSoThue || '—'}</div>
+        </div>
+        ${n.diaChi ? `<div style="font-size:12px; color:var(--text-muted); margin-top:8px; border-top:1px solid var(--border-color); padding-top:8px;">📍 ${n.diaChi}</div>` : ''}
+      </div>
+    `).join('');
+
+    // Render table
+    document.getElementById('ncc-tbody').innerHTML = data.map(n => `
+      <tr>
+        <td style="font-weight:600; color:var(--kt-primary);">${n.maNcc}</td>
+        <td style="font-weight:600;">${n.tenNcc}</td>
+        <td>${n.nguoiLienHe || '—'}</td>
+        <td>${n.soDienThoai || '—'}</td>
+        <td style="font-size:12px;">${n.email || '—'}</td>
+        <td style="font-family:monospace; font-size:12px;">${n.maSoThue || '—'}</td>
+        <td>${statusHtml(n.trangThai)}</td>
+        <td style="text-align:center;">
+          <button class="btn btn-secondary btn-sm" onclick="openDetailModal(${n.id})">Chi tiết</button>
+        </td>
+      </tr>
+    `).join('');
+
+    // Show current view
+    if (currentView === 'grid') {
+      document.getElementById('ncc-grid-view').style.display = 'grid';
+    } else {
+      document.getElementById('ncc-table-view').style.display = 'block';
+    }
+  }
+
+  function openDetailModal(id) {
+    const n = allNCC.find(x => x.id === id);
+    if (!n) return;
+    document.getElementById('ncc-detail-name').textContent = '🏭 ' + n.tenNcc;
+    document.getElementById('ncc-detail-content').innerHTML = `
+      <div style="display:grid; gap:10px; font-size:13px;">
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-color);">
+          <span style="color:var(--text-muted);">Mã NCC</span><strong>${n.maNcc}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-color);">
+          <span style="color:var(--text-muted);">Tên đầy đủ</span><strong>${n.tenNcc}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-color);">
+          <span style="color:var(--text-muted);">Mã số thuế</span><strong style="font-family:monospace;">${n.maSoThue || '—'}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-color);">
+          <span style="color:var(--text-muted);">Người liên hệ</span><strong>${n.nguoiLienHe || '—'}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-color);">
+          <span style="color:var(--text-muted);">Điện thoại</span><strong>${n.soDienThoai || '—'}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-color);">
+          <span style="color:var(--text-muted);">Email</span><strong>${n.email || '—'}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-color);">
+          <span style="color:var(--text-muted);">Địa chỉ</span><span style="text-align:right; max-width:300px;">${n.diaChi || '—'}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:8px 0;">
+          <span style="color:var(--text-muted);">Trạng thái</span>
+          ${n.trangThai === 'HOAT_DONG' ? '<span class="badge badge-green">Đang hoạt động</span>' : '<span class="badge badge-orange">Dừng hợp tác</span>'}
+        </div>
+      </div>
+    `;
+    document.getElementById('ncc-detail-modal').classList.add('show');
+  }
+
+  function closeDetailModal() {
+    document.getElementById('ncc-detail-modal').classList.remove('show');
+  }
+
+  function openAddModal() {
+    document.getElementById('ncc-modal-title').textContent = '➕ Thêm Nhà Cung Cấp Mới';
+    document.getElementById('ncc-form').reset();
+    document.getElementById('ncc-id').value = '';
+    document.getElementById('ncc-modal').classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('ncc-modal').classList.remove('show');
+  }
+
+  async function handleSaveNCC(e) {
+    e.preventDefault();
+    const btn = document.getElementById('ncc-save-btn');
+    btn.disabled = true;
+    btn.textContent = 'Đang lưu...';
+
+    const payload = {
+      maNcc: document.getElementById('ncc-ma').value,
+      tenNcc: document.getElementById('ncc-ten').value,
+      maSoThue: document.getElementById('ncc-mst').value,
+      nguoiLienHe: document.getElementById('ncc-nlh').value,
+      soDienThoai: document.getElementById('ncc-sdt').value,
+      email: document.getElementById('ncc-email').value,
+      diaChi: document.getElementById('ncc-dia-chi').value,
+      ghiChu: document.getElementById('ncc-ghi-chu').value,
+    };
+
+    try {
+      const res = await fetch('/api/accounting/suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('✅ Lưu nhà cung cấp thành công!');
+        closeModal();
+        loadNCC();
+      } else {
+        const msg = await res.text();
+        alert('❌ Lỗi: ' + msg);
+      }
+    } catch {
+      alert('❌ Không thể kết nối máy chủ.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 Lưu Nhà Cung Cấp';
+    }
+  }
+
+  // Close modal on overlay click
+  document.getElementById('ncc-modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+  document.getElementById('ncc-detail-modal').addEventListener('click', function(e) { if (e.target === this) closeDetailModal(); });
+
+  loadNCC();
+</script>
+
+</body>
+</html>

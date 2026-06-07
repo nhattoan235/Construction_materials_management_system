@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Báo cáo tài chính - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .report-stat-box {
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 18px;
+      background-color: var(--bg-card);
+      flex: 1;
+      text-align: center;
+      transition: box-shadow 0.2s;
+    }
+    .report-stat-box:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+    .report-stat-num { font-size: 22px; font-weight: 800; margin-top: 6px; }
+    .loading-spinner { text-align:center; padding:40px; color:var(--text-muted); font-size:14px; }
+    .rep-filter-bar { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+    .save-btn-wrap { display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
+  </style>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+
+  <div class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div>
+        <h4 style="font-weight: 700;">Báo Cáo Tài Chính &amp; Doanh Thu</h4>
+        <p class="text-muted-desc">Xuất báo cáo doanh thu bán hàng, báo cáo công nợ và dòng tiền chi tiết.</p>
+      </div>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="card-body" style="padding:16px;">
+        <div class="rep-filter-bar">
+          <div style="flex:1; min-width:200px;">
+            <label class="form-label">Loại báo cáo</label>
+            <select class="form-control" id="rep-type" onchange="onReportTypeChange()">
+              <option value="revenue">📊 Báo cáo doanh thu bán hàng</option>
+              <option value="debt">💰 Báo cáo tổng hợp công nợ khách hàng</option>
+              <option value="cashflow">🏦 Báo cáo dòng tiền thu chi</option>
+            </select>
+          </div>
+          <div id="date-range-wrap" style="display:flex; gap:12px;">
+            <div style="min-width:150px;">
+              <label class="form-label">Từ ngày</label>
+              <input type="date" class="form-control" id="rep-from">
+            </div>
+            <div style="min-width:150px;">
+              <label class="form-label">Đến ngày</label>
+              <input type="date" class="form-control" id="rep-to">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="generateReport()" style="align-self:flex-end;">🔍 Tải báo cáo</button>
+          <button class="btn btn-secondary" onclick="printReport()" style="align-self:flex-end;">🖨️ In báo cáo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Report Content Card -->
+    <div class="card" id="report-card">
+      <div class="card-header">
+        <span class="card-title" id="report-title-lbl">Chưa tải báo cáo — Bấm "Tải báo cáo" để xem dữ liệu</span>
+        <button class="btn btn-warning btn-sm" id="save-report-btn" style="display:none;" onclick="saveReport()">💾 Lưu Báo Cáo</button>
+      </div>
+      <div class="card-body">
+
+        <!-- Summary boxes -->
+        <div style="display:flex; gap:16px; margin-bottom:24px; flex-wrap:wrap;" id="report-summary"></div>
+
+        <!-- Loading -->
+        <div id="report-loading" class="loading-spinner" style="display:none;">⏳ Đang tải dữ liệu báo cáo...</div>
+
+        <!-- Table -->
+        <div class="table-responsive" id="report-table-wrap" style="display:none;">
+          <table class="table" id="report-table">
+            <thead id="report-thead"></thead>
+            <tbody id="report-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Empty state -->
+        <div id="report-empty" style="display:none; text-align:center; padding:60px; color:var(--text-muted);">
+          <div style="font-size:48px; margin-bottom:12px;">📋</div>
+          <div>Không có dữ liệu trong khoảng thời gian đã chọn.</div>
+        </div>
+
+        <!-- Initial placeholder -->
+        <div id="report-placeholder" style="text-align:center; padding:60px; color:var(--text-muted);">
+          <div style="font-size:48px; margin-bottom:16px;">📈</div>
+          <div style="font-size:15px;">Chọn loại báo cáo và nhấn <strong>Tải báo cáo</strong> để xem dữ liệu thực.</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const username = localStorage.getItem('username') || '';
+
+  function fmt(num) {
+    if (num == null || num === '') return '0đ';
+    return Number(num).toLocaleString('vi-VN') + 'đ';
+  }
+
+  function fmtNum(n) {
+    return Number(n).toLocaleString('vi-VN');
+  }
+
+  // Set default date range: last 30 days
+  const today = new Date();
+  const lastMonth = new Date(today);
+  lastMonth.setMonth(today.getMonth() - 1);
+  document.getElementById('rep-to').value = today.toISOString().split('T')[0];
+  document.getElementById('rep-from').value = lastMonth.toISOString().split('T')[0];
+
+  function onReportTypeChange() {
+    const type = document.getElementById('rep-type').value;
+    const dateWrap = document.getElementById('date-range-wrap');
+    dateWrap.style.display = type === 'debt' ? 'none' : 'flex';
+  }
+
+  function setLoading(show) {
+    document.getElementById('report-loading').style.display = show ? 'block' : 'none';
+    document.getElementById('report-placeholder').style.display = 'none';
+    document.getElementById('report-table-wrap').style.display = 'none';
+    document.getElementById('report-empty').style.display = 'none';
+    document.getElementById('report-summary').innerHTML = '';
+    document.getElementById('save-report-btn').style.display = 'none';
+  }
+
+  function generateReport() {
+    const type = document.getElementById('rep-type').value;
+    const from = document.getElementById('rep-from').value;
+    const to = document.getElementById('rep-to').value;
+    setLoading(true);
+
+    if (type === 'revenue') {
+      generateRevenue(from, to);
+    } else if (type === 'cashflow') {
+      generateCashflow(from, to);
+    } else if (type === 'debt') {
+      generateDebtSummary();
+    }
+  }
+
+  function generateRevenue(from, to) {
+    let url = '/api/accounting/reports/revenue';
+    const params = [];
+    if (from) params.push('tuNgay=' + from);
+    if (to) params.push('denNgay=' + to);
+    if (params.length) url += '?' + params.join('&');
+
+    const fromLabel = from ? formatDisplayDate(from) : 'Tất cả';
+    const toLabel = to ? formatDisplayDate(to) : 'hiện tại';
+    document.getElementById('report-title-lbl').textContent = `Báo cáo doanh thu bán hàng (${fromLabel} — ${toLabel})`;
+
+    fetch(url).then(r => r.json()).then(data => {
+      document.getElementById('report-loading').style.display = 'none';
+
+      // Summary
+      const summary = document.getElementById('report-summary');
+      summary.innerHTML = `
+        <div class="report-stat-box" style="border-top:3px solid var(--kh-primary);">
+          <div style="font-size:12px; color:var(--text-muted);">Tổng Doanh Thu Gộp</div>
+          <div class="report-stat-num">${fmt(data.tongDoanhThu)}</div>
+        </div>
+        <div class="report-stat-box" style="border-top:3px solid #16a34a;">
+          <div style="font-size:12px; color:var(--text-muted);">Đã Thu Thực Tế</div>
+          <div class="report-stat-num" style="color:#16a34a;">${fmt(data.tongDaThu)}</div>
+        </div>
+        <div class="report-stat-box" style="border-top:3px solid #ef4444;">
+          <div style="font-size:12px; color:var(--text-muted);">Công Nợ Phát Sinh</div>
+          <div class="report-stat-num" style="color:#dc2626;">${fmt(data.tongConNo)}</div>
+        </div>
+        <div class="report-stat-box" style="border-top:3px solid var(--kd-primary);">
+          <div style="font-size:12px; color:var(--text-muted);">Tổng Đơn Hàng</div>
+          <div class="report-stat-num">${fmtNum(data.rows.length)}</div>
+        </div>
+      `;
+
+      if (data.rows.length === 0) {
+        document.getElementById('report-empty').style.display = 'block';
+        return;
+      }
+
+      const statusLabel = {
+        'CHO_XAC_NHAN': '<span class="badge badge-orange">Chờ xác nhận</span>',
+        'DA_XAC_NHAN': '<span class="badge badge-green">Đã duyệt</span>',
+        'HOAN_THANH': '<span class="badge badge-green">Hoàn thành</span>',
+        'DA_HUY': '<span class="badge" style="background:#fee2e2;color:#b91c1c;">Đã hủy</span>',
+      };
+
+      document.getElementById('report-thead').innerHTML = `<tr>
+        <th>Mã Đơn</th><th>Khách Hàng</th><th>Ngày Đặt</th><th>Vật liệu</th>
+        <th class="text-right">Tổng Tiền</th><th class="text-right">Đã Thu</th><th class="text-right">Còn Nợ</th><th>Trạng Thái</th>
+      </tr>`;
+      document.getElementById('report-tbody').innerHTML = data.rows.map(r => `
+        <tr>
+          <td style="font-weight:600;">${r.maDonHang}</td>
+          <td>${r.khachHangTen}</td>
+          <td>${r.ngayDat}</td>
+          <td style="font-size:12px; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.vatLieu}</td>
+          <td class="text-right">${fmt(r.tongTien)}</td>
+          <td class="text-right" style="color:#16a34a; font-weight:600;">${fmt(r.daThu)}</td>
+          <td class="text-right" style="color:#dc2626; font-weight:600;">${fmt(r.conNo)}</td>
+          <td>${statusLabel[r.trangThai] || r.trangThai}</td>
+        </tr>
+      `).join('');
+      document.getElementById('report-table-wrap').style.display = 'block';
+      document.getElementById('save-report-btn').style.display = 'inline-flex';
+    }).catch(() => {
+      document.getElementById('report-loading').innerHTML = '❌ Lỗi tải dữ liệu.';
+    });
+  }
+
+  function generateCashflow(from, to) {
+    let url = '/api/accounting/reports/cashflow';
+    const params = [];
+    if (from) params.push('tuNgay=' + from);
+    if (to) params.push('denNgay=' + to);
+    if (params.length) url += '?' + params.join('&');
+
+    const fromLabel = from ? formatDisplayDate(from) : 'Tất cả';
+    const toLabel = to ? formatDisplayDate(to) : 'hiện tại';
+    document.getElementById('report-title-lbl').textContent = `Báo cáo dòng tiền thu chi (${fromLabel} — ${toLabel})`;
+
+    fetch(url).then(r => r.json()).then(data => {
+      document.getElementById('report-loading').style.display = 'none';
+
+      const luuChuyen = parseFloat(data.tongThu) - parseFloat(data.tongChi);
+      const summary = document.getElementById('report-summary');
+      summary.innerHTML = `
+        <div class="report-stat-box" style="border-top:3px solid #16a34a;">
+          <div style="font-size:12px; color:var(--text-muted);">Tổng Thu (Tiền mặt + CK)</div>
+          <div class="report-stat-num" style="color:#16a34a;">+${fmt(data.tongThu)}</div>
+        </div>
+        <div class="report-stat-box" style="border-top:3px solid #ef4444;">
+          <div style="font-size:12px; color:var(--text-muted);">Tổng Chi (Nhà cung cấp)</div>
+          <div class="report-stat-num" style="color:#dc2626;">-${fmt(data.tongChi)}</div>
+        </div>
+        <div class="report-stat-box" style="border-top:3px solid #757575;">
+          <div style="font-size:12px; color:var(--text-muted);">Lưu Chuyển Tiền Tệ Ròng</div>
+          <div class="report-stat-num" style="color:${luuChuyen >= 0 ? '#16a34a' : '#dc2626'};">${luuChuyen >= 0 ? '+' : ''}${fmt(luuChuyen)}</div>
+        </div>
+        <div class="report-stat-box" style="border-top:3px solid var(--kh-primary);">
+          <div style="font-size:12px; color:var(--text-muted);">Số Phiếu Thu</div>
+          <div class="report-stat-num">${fmtNum(data.soPhieuThu)}</div>
+        </div>
+      `;
+
+      if (data.rows.length === 0) {
+        document.getElementById('report-empty').style.display = 'block';
+        return;
+      }
+
+      const hinhThucLabel = { 'CHUYEN_KHOAN': 'Chuyển khoản', 'TIEN_MAT': 'Tiền mặt', 'THE': 'Thẻ NH' };
+      document.getElementById('report-thead').innerHTML = `<tr>
+        <th>Số Phiếu</th><th>Loại</th><th>Người Giao Dịch</th><th>Ngày Giao Dịch</th>
+        <th>Hình Thức</th><th class="text-right">Số Tiền</th><th>Mã GD</th><th>Người Thu</th>
+      </tr>`;
+      document.getElementById('report-tbody').innerHTML = data.rows.map(r => `
+        <tr>
+          <td style="font-weight:600; color:var(--kh-primary);">${r.maThanhToan}</td>
+          <td><span class="badge badge-green">THU</span></td>
+          <td>${r.nguoiGiaoDich}</td>
+          <td style="font-size:12px;">${r.ngayGiaoDich}</td>
+          <td>${hinhThucLabel[r.hinhThuc] || r.hinhThuc}</td>
+          <td class="text-right" style="color:#16a34a; font-weight:700;">+${fmt(r.soTien)}</td>
+          <td style="font-family:monospace; font-size:11px;">${r.maGiaoDich || '—'}</td>
+          <td>${r.nguoiThu}</td>
+        </tr>
+      `).join('');
+      document.getElementById('report-table-wrap').style.display = 'block';
+      document.getElementById('save-report-btn').style.display = 'inline-flex';
+    }).catch(() => {
+      document.getElementById('report-loading').innerHTML = '❌ Lỗi tải dữ liệu.';
+    });
+  }
+
+  function generateDebtSummary() {
+    document.getElementById('report-title-lbl').textContent = 'Báo cáo tổng hợp công nợ khách hàng (tính đến hiện tại)';
+    document.getElementById('date-range-wrap').style.display = 'none';
+
+    fetch('/api/accounting/reports/debt-summary').then(r => r.json()).then(data => {
+      document.getElementById('report-loading').style.display = 'none';
+
+      const summary = document.getElementById('report-summary');
+      summary.innerHTML = `
+        <div class="report-stat-box" style="border-top:3px solid #ef4444;">
+          <div style="font-size:12px; color:var(--text-muted);">Tổng Dư Nợ Cần Thu</div>
+          <div class="report-stat-num" style="color:#dc2626;">${fmt(data.tongDuNo)}</div>
+        </div>
+        <div class="report-stat-box" style="border-top:3px solid var(--kh-primary);">
+          <div style="font-size:12px; color:var(--text-muted);">Số Khách Còn Nợ</div>
+          <div class="report-stat-num">${fmtNum(data.soKhach)} khách</div>
+        </div>
+      `;
+
+      if (data.rows.length === 0) {
+        document.getElementById('report-empty').style.display = 'block';
+        document.getElementById('report-empty').innerHTML = `
+          <div style="font-size:48px; margin-bottom:12px;">✅</div>
+          <div>Không có công nợ nào! Tất cả khách hàng đã thanh toán đầy đủ.</div>
+        `;
+        return;
+      }
+
+      document.getElementById('report-thead').innerHTML = `<tr>
+        <th>Khách Hàng</th><th>Địa Chỉ</th><th>Số Điện Thoại</th>
+        <th class="text-right">Số Công Nợ</th><th class="text-right">Tổng Dư Nợ</th><th>Trạng Thái</th>
+      </tr>`;
+      document.getElementById('report-tbody').innerHTML = data.rows.map(r => `
+        <tr>
+          <td style="font-weight:600;">${r.khachHangTen}</td>
+          <td style="font-size:12px; max-width:180px;">${r.diaChi || '—'}</td>
+          <td>${r.soDienThoai || '—'}</td>
+          <td class="text-right">${fmtNum(r.soCongNo)}</td>
+          <td class="text-right" style="color:#dc2626; font-weight:700; font-size:15px;">${fmt(r.tongDuNo)}</td>
+          <td><span class="badge badge-orange">Còn nợ</span></td>
+        </tr>
+      `).join('');
+      document.getElementById('report-table-wrap').style.display = 'block';
+      document.getElementById('save-report-btn').style.display = 'inline-flex';
+    }).catch(() => {
+      document.getElementById('report-loading').innerHTML = '❌ Lỗi tải dữ liệu.';
+    });
+  }
+
+  function formatDisplayDate(dateStr) {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  async function saveReport() {
+    const type = document.getElementById('rep-type').value;
+    const from = document.getElementById('rep-from').value;
+    const to = document.getElementById('rep-to').value;
+    const titleLabel = document.getElementById('report-title-lbl').textContent;
+
+    const loaiMap = { revenue: 'TAI_CHINH', debt: 'TAI_CHINH', cashflow: 'TAI_CHINH' };
+
+    try {
+      const res = await fetch('/api/accounting/reports/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          loai: loaiMap[type] || 'TAI_CHINH',
+          tieuDe: titleLabel,
+          tuNgay: from,
+          denNgay: to,
+          username,
+          ghiChu: 'Báo cáo tạo từ hệ thống kế toán'
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('✅ ' + data.message);
+      } else {
+        alert('❌ Lỗi lưu báo cáo.');
+      }
+    } catch {
+      alert('❌ Không thể kết nối máy chủ.');
+    }
+  }
+
+  function printReport() {
+    window.print();
+  }
+</script>
+
+</body>
+</html>

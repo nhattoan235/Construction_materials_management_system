@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Danh mục hàng hóa - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/custom-alert.js"></script>
+  <style>
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background-color: var(--bg-card);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 600px;
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+      animation: modalSlide 0.3s ease;
+    }
+    .modal-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #fafbfc;
+    }
+  </style>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+  
+  <div class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div>
+        <h4 style="font-weight: 700;">Quản Lý Danh Mục & Sản Phẩm</h4>
+        <p class="text-muted-desc">Quản lý các nhóm vật liệu, mặt hàng xây dựng và điều chỉnh giá bán theo biến động thị trường.</p>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="tabs-container">
+      <button class="tab-btn active" onclick="switchCatalogTab('products')" id="btn-products-tab">Danh Sách Mặt Hàng</button>
+      <button class="tab-btn" onclick="switchCatalogTab('categories')" id="btn-categories-tab">Danh Mục Phân Loại</button>
+    </div>
+
+    <!-- TAB 1: DANH SÁCH MẶT HÀNG -->
+    <div id="products-tab-content" class="tab-content active">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <span class="text-muted-desc">Tổng số sản phẩm đang kinh doanh: <strong th:text="${#lists.size(hangHoas)}">0</strong></span>
+        <button class="btn btn-primary btn-sm" onclick="openProductModal()">+ Thêm Mặt Hàng</button>
+      </div>
+
+      <div class="card">
+        <div class="card-body" style="padding: 0;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Mã Hàng</th>
+                <th>Hình ảnh</th>
+                <th>Tên Mặt Hàng</th>
+                <th>Phân Loại</th>
+                <th>Quy Cách Kỹ Thuật</th>
+                <th>Đơn Vị Tính</th>
+                <th class="text-right">Giá Bán Lẻ</th>
+                <th class="text-right">Giá Bán Sỉ</th>
+                <th>Trạng Thái</th>
+                <th style="text-align: center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="prod : ${hangHoas}">
+                <td style="font-weight: 600;" th:text="${prod.maHang}">HH-001</td>
+                <td style="text-align: center; vertical-align: middle; padding: 8px;">
+                  <!-- If image url -->
+                  <img th:if="${prod.anhUrl != null && (prod.anhUrl.startsWith('/') || prod.anhUrl.startsWith('http'))}" 
+                       th:src="${prod.anhUrl}" 
+                       style="width: 40px; height: 40px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-subtle);" />
+                  <!-- If emoji -->
+                  <span th:unless="${prod.anhUrl != null && (prod.anhUrl.startsWith('/') || prod.anhUrl.startsWith('http'))}" 
+                        style="font-size: 24px;" 
+                        th:text="${prod.anhUrl != null ? prod.anhUrl : '📦'}">📦</span>
+                </td>
+                <td style="font-weight: 600;" th:text="${prod.tenHang}">Thép cây D10</td>
+                <td th:text="${prod.danhMuc != null ? prod.danhMuc.ten : 'Không phân loại'}">Thép xây dựng</td>
+                <td th:text="${prod.quyCach}">D10, dài 11.7m</td>
+                <td th:text="${prod.donViTinh}">cây</td>
+                <td class="text-right" th:text="${#numbers.formatDecimal(prod.giaBanLe, 0, 'COMMA', 0, 'POINT')} + 'đ'">185,000đ</td>
+                <td class="text-right" th:text="${prod.giaBanSi != null ? #numbers.formatDecimal(prod.giaBanSi, 0, 'COMMA', 0, 'POINT') + 'đ' : ''}">178,000đ</td>
+                <td><span class="badge badge-green" th:text="${prod.trangThai}">Kinh doanh</span></td>
+                <td style="text-align: center;">
+                  <div class="flex-gap-8" style="justify-content: center;">
+                    <form th:id="'delete-prod-form-' + ${prod.id}" th:action="@{/kinh_doanh/danh_muc_hang_hoa/delete}" method="post">
+                      <input type="hidden" name="id" th:value="${prod.id}">
+                      <button type="button" class="btn btn-danger btn-sm" th:attr="onclick=|confirmDeleteProduct('${prod.id}')|">Xóa</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: DANH MỤC PHÂN LOẠI -->
+    <div id="categories-tab-content" class="tab-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <span class="text-muted-desc">Tổng số danh mục: <strong th:text="${#lists.size(danhMucs)}">0</strong></span>
+        <button class="btn btn-primary btn-sm" onclick="openCategoryModal()">+ Thêm Danh Mục</button>
+      </div>
+
+      <div class="card">
+        <div class="card-body" style="padding: 0;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Mã Danh Mục</th>
+                <th>Tên Danh Mục</th>
+                <th>Mô Tả Chi Tiết</th>
+                <th style="text-align: center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="cat : ${danhMucs}">
+                <td style="font-weight: 600;" th:text="${cat.maDanhMuc}">DM-001</td>
+                <td style="font-weight: 600;" th:text="${cat.ten}">Thép xây dựng</td>
+                <td th:text="${cat.moTa}">Mô tả chi tiết</td>
+                <td style="text-align: center;">
+                  <div class="flex-gap-8" style="justify-content: center;">
+                    <form th:id="'delete-cat-form-' + ${cat.id}" th:action="@{/kinh_doanh/danh_muc/delete}" method="post">
+                      <input type="hidden" name="id" th:value="${cat.id}">
+                      <button type="button" class="btn btn-danger btn-sm" th:attr="onclick=|confirmDeleteCategory('${cat.id}')|">Xóa</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 1: THÊM MẶT HÀNG MỚI -->
+    <div class="modal" id="productModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span style="font-weight: 700; color: var(--kh-dark); font-size: 16px;">Thêm Sản Phẩm Mới</span>
+          <button onclick="closeProductModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+        <form th:action="@{/kinh_doanh/danh_muc_hang_hoa/add}" method="post" enctype="multipart/form-data">
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Mã mặt hàng</label>
+                <input type="text" name="maHang" class="form-control" placeholder="Ví dụ: HH-006" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tên mặt hàng</label>
+                <input type="text" name="tenHang" class="form-control" placeholder="Ví dụ: Thép hộp Hòa Phát" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Danh mục phân loại</label>
+                <select name="danhMucId" class="form-control" required>
+                  <option th:each="cat : ${danhMucs}" th:value="${cat.id}" th:text="${cat.ten}">Danh mục</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Đơn vị tính</label>
+                <input type="text" name="donViTinh" class="form-control" placeholder="cây, bao, khối, viên..." required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Quy cách kỹ thuật (kích thước, tiêu chuẩn)</label>
+              <input type="text" name="quyCach" class="form-control" placeholder="Ví dụ: 30x30x2mm, dài 6m" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Giá bán lẻ (đ/DVT)</label>
+                <input type="number" step="any" name="giaBanLe" class="form-control" placeholder="150000" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Giá bán sỉ (đ/DVT)</label>
+                <input type="number" step="any" name="giaBanSi" class="form-control" placeholder="140000">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Emoji hoặc URL ảnh đại diện</label>
+                <input type="text" name="anhUrl" class="form-control" placeholder="Ví dụ: 🧱 hoặc link ảnh">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Hoặc tải ảnh từ thiết bị</label>
+                <input type="file" name="anhFile" class="form-control" accept="image/*">
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px;">
+              <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Hủy bỏ</button>
+              <button type="submit" class="btn btn-primary">Lưu sản phẩm</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL 2: THÊM DANH MỤC MỚI -->
+    <div class="modal" id="categoryModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span style="font-weight: 700; color: var(--kh-dark); font-size: 16px;">Thêm Nhóm Danh Mục Mới</span>
+          <button onclick="closeCategoryModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+        <form th:action="@{/kinh_doanh/danh_muc/add}" method="post">
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">Mã danh mục</label>
+              <input type="text" name="maDanhMuc" class="form-control" placeholder="Ví dụ: DM-005" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tên danh mục</label>
+              <input type="text" name="ten" class="form-control" placeholder="Ví dụ: Đá xây dựng" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Mô tả nhóm sản phẩm</label>
+              <textarea name="moTa" class="form-control" rows="3" placeholder="Ví dụ: Đá 1x2, đá 4x6 đổ bê tông..."></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px;">
+              <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Hủy bỏ</button>
+              <button type="submit" class="btn btn-primary">Lưu danh mục</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div th:replace="~{bo_cuc/footer :: footer}"></div>
+  </div>
+</div>
+
+<script>
+  function switchCatalogTab(tab) {
+    document.getElementById('btn-products-tab').classList.remove('active');
+    document.getElementById('btn-categories-tab').classList.remove('active');
+    document.getElementById('products-tab-content').classList.remove('active');
+    document.getElementById('categories-tab-content').classList.remove('active');
+    
+    if (tab === 'products') {
+      document.getElementById('btn-products-tab').classList.add('active');
+      document.getElementById('products-tab-content').classList.add('active');
+    } else {
+      document.getElementById('btn-categories-tab').classList.add('active');
+      document.getElementById('categories-tab-content').classList.add('active');
+    }
+  }
+
+  function openProductModal() {
+    document.getElementById('productModal').style.display = 'flex';
+  }
+  function closeProductModal() {
+    document.getElementById('productModal').style.display = 'none';
+  }
+
+  // Categories Modal
+  function openCategoryModal() {
+    document.getElementById('categoryModal').style.display = 'flex';
+  }
+  function closeCategoryModal() {
+    document.getElementById('categoryModal').style.display = 'none';
+  }
+
+  function confirmDeleteProduct(id) {
+    showConfirm('Bạn có chắc muốn xóa sản phẩm này?', function() {
+      document.getElementById('delete-prod-form-' + id).submit();
+    });
+  }
+
+  function confirmDeleteCategory(id) {
+    showConfirm('Bạn có chắc muốn xóa danh mục này?', function() {
+      document.getElementById('delete-cat-form-' + id).submit();
+    });
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý kho - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0,0,0,0.45);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal.show { display: flex; }
+    .modal-content {
+      background-color: var(--bg-card);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 650px;
+      max-height: 90vh;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      animation: modalSlide 0.25s ease;
+    }
+    .product-line {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      padding: 10px 0;
+      border-bottom: 1px dashed var(--border-color);
+    }
+    .product-line:last-child { border-bottom: none; }
+    .alert-low {
+      background: #fff5f5;
+      border: 1px solid #ffcdd2;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 12px;
+      color: #c62828;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+
+  <div class="main-content">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+      <div>
+        <h4 style="font-weight:700;">Quản Lý Kho (Thủ Kho)</h4>
+        <p class="text-muted-desc">Quản lý tồn kho thực tế, lập phiếu nhập/xuất kho và kiểm kê định kỳ.</p>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="refreshAll()">🔄 Làm mới</button>
+    </div>
+
+    <!-- KPI Stats -->
+    <div class="dashboard-grid">
+      <div class="stat-card" style="border-left:4px solid var(--kho-primary);">
+        <div class="stat-card-title">Mặt hàng đang lưu kho</div>
+        <div class="stat-card-value" style="color:var(--kho-dark);" id="kpi-total-products">—</div>
+        <div class="stat-card-desc">Dòng sản phẩm trong hệ thống</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid #ef4444;">
+        <div class="stat-card-title">Cảnh báo tồn kho thấp</div>
+        <div class="stat-card-value" style="color:#dc2626;" id="kpi-low-stock">—</div>
+        <div class="stat-card-desc">Mặt hàng dưới ngưỡng an toàn (10 đơn vị)</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid var(--kh-primary);">
+        <div class="stat-card-title">Phiếu chờ Ban QĐ duyệt</div>
+        <div class="stat-card-value" style="color:var(--kh-dark);" id="kpi-pending-slips">—</div>
+        <div class="stat-card-desc">Phiếu kho đã lập, chờ phê duyệt</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-container">
+      <button class="tab-btn active" onclick="switchTab('stock')" id="btn-stock-tab">📦 Tồn Kho Thực Tế</button>
+      <button class="tab-btn" onclick="switchTab('tickets')" id="btn-tickets-tab">📋 Lịch Sử Phiếu Kho</button>
+      <button class="tab-btn" onclick="switchTab('create')" id="btn-create-tab">➕ Lập Phiếu Kho Mới</button>
+    </div>
+
+    <!-- TAB 1: TỒN KHO -->
+    <div id="stock-tab-content" class="tab-content active">
+      <div id="low-stock-alert" class="alert-low" style="display:none;">
+        ⚠️ <strong>Cảnh báo:</strong> Một số mặt hàng có tồn kho thấp hơn ngưỡng an toàn! Vui lòng lập phiếu nhập hàng.
+      </div>
+      <div class="card">
+        <div class="card-body" style="padding:0;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Mã Hàng</th>
+                <th>Tên Sản Phẩm</th>
+                <th>Đơn Vị Tính</th>
+                <th>Kho Lưu Trữ</th>
+                <th class="text-right">Số Lượng Tồn</th>
+                <th>Trạng Thái Tồn</th>
+                <th style="text-align:center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="stock-tbody">
+              <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Đang tải dữ liệu tồn kho...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: LỊCH SỬ PHIẾU KHO -->
+    <div id="tickets-tab-content" class="tab-content">
+      <div class="card">
+        <div class="card-body" style="padding:0;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Số Phiếu</th>
+                <th>Loại</th>
+                <th>Ngày Lập</th>
+                <th>Người Lập</th>
+                <th>Kho</th>
+                <th>Nguồn / Đơn Hàng</th>
+                <th>Sản Phẩm</th>
+                <th class="text-right">Tổng SL</th>
+                <th>Trạng Thái</th>
+              </tr>
+            </thead>
+            <tbody id="tickets-tbody">
+              <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted);">Đang tải lịch sử phiếu kho...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: LẬP PHIẾU KHO MỚI -->
+    <div id="create-tab-content" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Phiếu Ghi Nhận Nhập / Xuất Kho</span>
+          <span class="text-muted-desc" style="font-size:12px;">Phiếu sẽ chờ Ban Quản Lý phê duyệt trước khi cập nhật tồn kho thực tế</span>
+        </div>
+        <div class="card-body">
+          <form id="create-slip-form" onsubmit="handleCreateSlip(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Loại phiếu kho <span style="color:#ef4444;">*</span></label>
+                <select class="form-control" id="slip-type" onchange="onSlipTypeChange()" required>
+                  <option value="NHAP">📥 Phiếu Nhập Kho (Nhập từ Nhà cung cấp)</option>
+                  <option value="XUAT">📤 Phiếu Xuất Kho (Xuất hàng theo đơn)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Mã phiếu (tự động)</label>
+                <input type="text" class="form-control" id="slip-code" style="background:#f1f5f9;" readonly>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group" id="ncc-group">
+                <label class="form-label">Nhà cung cấp (Phiếu Nhập) <span style="color:#ef4444;">*</span></label>
+                <select class="form-control" id="slip-ncc">
+                  <option value="">-- Chọn nhà cung cấp --</option>
+                </select>
+              </div>
+              <div class="form-group" id="donhang-group" style="display:none;">
+                <label class="form-label">Đơn hàng xuất kho <span style="color:#ef4444;">*</span></label>
+                <select class="form-control" id="slip-donhang">
+                  <option value="">-- Chọn đơn hàng đã duyệt --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Kho hàng <span style="color:#ef4444;">*</span></label>
+                <select class="form-control" id="slip-kho" required>
+                  <option value="">-- Chọn kho --</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Chi tiết hàng hóa -->
+            <div style="border-top:1px solid var(--border-color); margin:20px 0; padding-top:20px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h5 style="font-weight:600; font-size:14px; margin:0;">Danh mục vật tư nhập/xuất</h5>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addProductLine()">+ Thêm mặt hàng</button>
+              </div>
+              <div id="product-lines-container">
+                <!-- Lines added dynamically -->
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Ghi chú phiếu kho</label>
+              <textarea class="form-control" id="slip-note" rows="2" placeholder="Ghi chú thêm về quy cách nhận hàng, tài xế vận chuyển, v.v..."></textarea>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px;">
+              <button type="button" class="btn btn-secondary" onclick="switchTab('stock')">Hủy bỏ</button>
+              <button type="submit" class="btn btn-primary" id="submit-slip-btn">✅ Tạo phiếu & Gửi duyệt</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL KIỂM KÊ -->
+    <div class="modal" id="adjustModal">
+      <div class="modal-content">
+        <div class="modal-header" style="background-color:var(--kho-light);">
+          <span style="font-weight:700; color:var(--kho-dark);">🔍 Kiểm Kê Thực Tế - Điều Chỉnh Tồn Kho</span>
+          <button onclick="closeAdjustModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);">&times;</button>
+        </div>
+        <form onsubmit="handleAdjustStock(event)">
+          <div class="card-body">
+            <input type="hidden" id="adj-tonkho-id">
+            <div class="form-group">
+              <label class="form-label">Mặt hàng kiểm kê</label>
+              <input type="text" id="adj-ten-hang" class="form-control" style="background:#f1f5f9;" readonly>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Tồn kho trên sổ sách (Hệ thống)</label>
+                <input type="number" id="adj-so-sach" class="form-control" style="background:#f1f5f9;" readonly>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Số lượng thực đếm (Kiểm kê) <span style="color:#ef4444;">*</span></label>
+                <input type="number" id="adj-thuc-te" class="form-control" min="0" step="0.001" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Lý do điều chỉnh chênh lệch <span style="color:#ef4444;">*</span></label>
+              <textarea id="adj-ly-do" class="form-control" rows="3"
+                placeholder="Ví dụ: Thất thoát do quá trình bốc xếp, hàng bị hư hỏng thanh lý, giao nhầm mã..." required></textarea>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:12px;">
+              <button type="button" class="btn btn-secondary" onclick="closeAdjustModal()">Hủy</button>
+              <button type="submit" class="btn btn-success">✅ Cập nhật tồn kho</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div th:replace="~{bo_cuc/footer :: footer}"></div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+  // ===== STATE =====
+  let _hangHoas = [];
+  let _khos = [];
+  let _nccs = [];
+  let _donHangs = [];
+  let _lineCount = 0;
+
+  // ===== TABS =====
+  function switchTab(tab) {
+    ['stock','tickets','create'].forEach(t => {
+      document.getElementById('btn-' + t + '-tab').classList.remove('active');
+      document.getElementById(t + '-tab-content').classList.remove('active');
+    });
+    document.getElementById('btn-' + tab + '-tab').classList.add('active');
+    document.getElementById(tab + '-tab-content').classList.add('active');
+
+    if (tab === 'stock') loadStock();
+    else if (tab === 'tickets') loadTickets();
+    else if (tab === 'create') loadFormData();
+  }
+
+  // ===== FORMAT HELPERS =====
+  function slipTypeBadge(t) {
+    if (t === 'NHAP') return '<span class="badge badge-green">NHẬP KHO</span>';
+    if (t === 'XUAT') return '<span class="badge badge-red">XUẤT KHO</span>';
+    return `<span class="badge badge-secondary">${t}</span>`;
+  }
+  function statusBadge(s) {
+    switch(s) {
+      case 'DA_DUYET': return '<span class="badge badge-green">Đã Duyệt</span>';
+      case 'NHAP': return '<span class="badge badge-blue">Chờ Duyệt</span>';
+      case 'HUY': return '<span class="badge badge-red">Đã Hủy</span>';
+      default: return `<span class="badge badge-secondary">${s}</span>`;
+    }
+  }
+
+  // ===== LOAD SUMMARY =====
+  async function loadSummary() {
+    try {
+      const res = await fetch('/api/warehouse/summary');
+      if (!res.ok) return;
+      const d = await res.json();
+      document.getElementById('kpi-total-products').textContent = d.totalProducts + ' dòng sản phẩm';
+      const lowEl = document.getElementById('kpi-low-stock');
+      lowEl.textContent = d.lowStock + ' mặt hàng';
+      lowEl.style.color = d.lowStock > 0 ? '#dc2626' : '#2e7d32';
+      document.getElementById('kpi-pending-slips').textContent = d.pendingSlips + ' phiếu';
+    } catch(e) { console.error(e); }
+  }
+
+  // ===== LOAD STOCK =====
+  async function loadStock() {
+    try {
+      const res = await fetch('/api/warehouse/stock');
+      const data = await res.json();
+      const tbody = document.getElementById('stock-tbody');
+      const alertEl = document.getElementById('low-stock-alert');
+
+      if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Chưa có dữ liệu tồn kho</td></tr>`;
+        return;
+      }
+
+      const hasLow = data.some(r => r.isLow);
+      alertEl.style.display = hasLow ? 'block' : 'none';
+
+      let html = '';
+      data.forEach(r => {
+        const slClass = r.isLow ? 'color:#dc2626; font-weight:700;' : 'font-weight:600;';
+        const badge = r.isLow
+          ? '<span class="badge badge-red">⚠ Tồn thấp</span>'
+          : '<span class="badge badge-green">Tồn an toàn</span>';
+        html += `
+          <tr>
+            <td style="font-weight:600;">${r.maHang}</td>
+            <td style="font-weight:600;">${r.tenHang}</td>
+            <td>${r.donViTinh}</td>
+            <td>${r.khoTen}</td>
+            <td class="text-right" style="${slClass}">${Number(r.soLuong).toLocaleString('vi-VN')} ${r.donViTinh}</td>
+            <td>${badge}</td>
+            <td style="text-align:center;">
+              <button class="btn btn-secondary btn-sm" onclick="openAdjustModal(${r.id}, '${r.tenHang}', ${r.soLuong})">
+                📋 Kiểm kê
+              </button>
+            </td>
+          </tr>`;
+      });
+      tbody.innerHTML = html;
+    } catch(e) {
+      document.getElementById('stock-tbody').innerHTML =
+        `<tr><td colspan="7" style="text-align:center;padding:20px;color:red;">Lỗi tải dữ liệu: ${e.message}</td></tr>`;
+    }
+  }
+
+  // ===== LOAD TICKETS =====
+  async function loadTickets() {
+    try {
+      const res = await fetch('/api/warehouse/slips');
+      const data = await res.json();
+      const tbody = document.getElementById('tickets-tbody');
+
+      if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted);">Chưa có phiếu kho nào</td></tr>`;
+        return;
+      }
+
+      let html = '';
+      data.forEach(p => {
+        html += `
+          <tr>
+            <td style="font-weight:700;">${p.maPhieu}</td>
+            <td>${slipTypeBadge(p.loaiPhieu)}</td>
+            <td>${p.ngayLap}</td>
+            <td>${p.nguoiTao}</td>
+            <td>${p.khoTen}</td>
+            <td style="max-width:150px;">${p.nguon}</td>
+            <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${p.sanPham}">${p.sanPham}</td>
+            <td class="text-right" style="font-weight:600;">${Number(p.tongSoLuong).toLocaleString('vi-VN')}</td>
+            <td>${statusBadge(p.trangThai)}</td>
+          </tr>`;
+      });
+      tbody.innerHTML = html;
+    } catch(e) {
+      document.getElementById('tickets-tbody').innerHTML =
+        `<tr><td colspan="9" style="text-align:center;color:red;">Lỗi: ${e.message}</td></tr>`;
+    }
+  }
+
+  // ===== LOAD FORM DATA =====
+  async function loadFormData() {
+    try {
+      const res = await fetch('/api/warehouse/form-data');
+      const d = await res.json();
+      _hangHoas = d.hangHoas;
+      _khos = d.khos;
+      _nccs = d.nccs;
+      _donHangs = d.donHangs;
+
+      // Populate NCC
+      const nccSel = document.getElementById('slip-ncc');
+      nccSel.innerHTML = '<option value="">-- Chọn nhà cung cấp --</option>';
+      _nccs.forEach(n => nccSel.insertAdjacentHTML('beforeend', `<option value="${n.id}">${n.tenNcc}</option>`));
+
+      // Populate DonHang
+      const dhSel = document.getElementById('slip-donhang');
+      dhSel.innerHTML = '<option value="">-- Chọn đơn hàng đã duyệt --</option>';
+      if (_donHangs.length === 0) {
+        dhSel.insertAdjacentHTML('beforeend', `<option value="" disabled>Không có đơn hàng nào chờ xuất kho</option>`);
+      }
+      _donHangs.forEach(dh => dhSel.insertAdjacentHTML('beforeend', `<option value="${dh.id}">${dh.label}</option>`));
+
+      // Populate Kho
+      const khoSel = document.getElementById('slip-kho');
+      khoSel.innerHTML = '<option value="">-- Chọn kho --</option>';
+      _khos.forEach(k => khoSel.insertAdjacentHTML('beforeend', `<option value="${k.id}">${k.tenKho}</option>`));
+      if (_khos.length === 1) khoSel.value = _khos[0].id;
+
+      // Set default code
+      document.getElementById('slip-code').value = d.nextNhapCode;
+
+      // Init with 1 product line
+      document.getElementById('product-lines-container').innerHTML = '';
+      _lineCount = 0;
+      addProductLine();
+
+    } catch(e) { console.error('Lỗi load form data:', e); }
+  }
+
+  function onSlipTypeChange() {
+    const type = document.getElementById('slip-type').value;
+    document.getElementById('ncc-group').style.display = type === 'NHAP' ? '' : 'none';
+    document.getElementById('donhang-group').style.display = type === 'XUAT' ? '' : 'none';
+
+    // Update code prefix
+    fetch('/api/warehouse/form-data').then(r => r.json()).then(d => {
+      document.getElementById('slip-code').value = type === 'NHAP' ? d.nextNhapCode : d.nextXuatCode;
+    });
+  }
+
+  function addProductLine() {
+    _lineCount++;
+    const id = _lineCount;
+    const options = _hangHoas.map(h =>
+      `<option value="${h.id}">${h.tenHang} (${h.donViTinh})</option>`).join('');
+    const html = `
+      <div class="product-line" id="line-${id}">
+        <div class="form-group" style="flex:3; margin:0;">
+          <label class="form-label" style="font-size:11px;">Sản phẩm</label>
+          <select class="form-control" id="line-hh-${id}" required>
+            <option value="">-- Chọn mặt hàng --</option>
+            ${options}
+          </select>
+        </div>
+        <div class="form-group" style="flex:1.2; margin:0;">
+          <label class="form-label" style="font-size:11px;">Số lượng</label>
+          <input type="number" class="form-control" id="line-sl-${id}" min="0.001" step="0.001" placeholder="0" required>
+        </div>
+        <div class="form-group" style="flex:2; margin:0;">
+          <label class="form-label" style="font-size:11px;">Ghi chú (tuỳ chọn)</label>
+          <input type="text" class="form-control" id="line-gc-${id}" placeholder="Quy cách, lô hàng...">
+        </div>
+        <button type="button" onclick="removeLine(${id})" style="background:none;border:none;color:#ef4444;font-size:18px;cursor:pointer;padding:0 6px;margin-bottom:6px;" title="Xóa dòng">✕</button>
+      </div>`;
+    document.getElementById('product-lines-container').insertAdjacentHTML('beforeend', html);
+  }
+
+  function removeLine(id) {
+    const el = document.getElementById('line-' + id);
+    if (el) el.remove();
+  }
+
+  async function handleCreateSlip(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submit-slip-btn');
+    btn.disabled = true;
+    btn.textContent = 'Đang tạo phiếu...';
+
+    try {
+      const loaiPhieu = document.getElementById('slip-type').value;
+      const khoId = document.getElementById('slip-kho').value;
+      const ghiChu = document.getElementById('slip-note').value;
+
+      // Collect lines
+      const chiTiet = [];
+      for (let i = 1; i <= _lineCount; i++) {
+        const lineEl = document.getElementById('line-' + i);
+        if (!lineEl) continue;
+        const hhId = document.getElementById('line-hh-' + i).value;
+        const sl = document.getElementById('line-sl-' + i).value;
+        const gc = document.getElementById('line-gc-' + i).value;
+        if (!hhId || !sl) continue;
+        chiTiet.push({ hangHoaId: hhId, soLuong: sl, ghiChu: gc });
+      }
+
+      if (chiTiet.length === 0) {
+        alert('Vui lòng thêm ít nhất 1 mặt hàng vào phiếu!');
+        btn.disabled = false; btn.textContent = '✅ Tạo phiếu & Gửi duyệt';
+        return;
+      }
+
+      const payload = { loaiPhieu, khoId, ghiChu, chiTiet };
+      if (loaiPhieu === 'NHAP') {
+        const nccId = document.getElementById('slip-ncc').value;
+        if (nccId) payload.nhaCungCapId = nccId;
+      } else {
+        const dhId = document.getElementById('slip-donhang').value;
+        if (dhId) payload.donHangId = dhId;
+      }
+
+      const res = await fetch('/api/warehouse/slips/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await res.json();
+      if (res.ok) {
+        alert('✅ ' + result.message);
+        document.getElementById('create-slip-form').reset();
+        document.getElementById('product-lines-container').innerHTML = '';
+        _lineCount = 0;
+        addProductLine();
+        switchTab('tickets');
+      } else {
+        alert('❌ Lỗi: ' + (result.message || result));
+      }
+    } catch(err) {
+      alert('❌ Lỗi kết nối: ' + err.message);
+    }
+
+    btn.disabled = false;
+    btn.textContent = '✅ Tạo phiếu & Gửi duyệt';
+  }
+
+  // ===== KIỂM KÊ =====
+  function openAdjustModal(tonKhoId, tenHang, soSach) {
+    document.getElementById('adj-tonkho-id').value = tonKhoId;
+    document.getElementById('adj-ten-hang').value = tenHang;
+    document.getElementById('adj-so-sach').value = soSach;
+    document.getElementById('adj-thuc-te').value = soSach;
+    document.getElementById('adj-ly-do').value = '';
+    document.getElementById('adjustModal').classList.add('show');
+  }
+  function closeAdjustModal() {
+    document.getElementById('adjustModal').classList.remove('show');
+  }
+
+  async function handleAdjustStock(e) {
+    e.preventDefault();
+    const tonKhoId = document.getElementById('adj-tonkho-id').value;
+    const soLuongThuc = document.getElementById('adj-thuc-te').value;
+    const lyDo = document.getElementById('adj-ly-do').value;
+
+    try {
+      const res = await fetch('/api/warehouse/stock/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tonKhoId, soLuongThuc, lyDo })
+      });
+      const result = await res.json();
+      if (res.ok) {
+        alert('✅ ' + result.message);
+        closeAdjustModal();
+        loadStock();
+        loadSummary();
+      } else {
+        alert('❌ Lỗi: ' + (result.message || result));
+      }
+    } catch(err) {
+      alert('❌ Lỗi kết nối: ' + err.message);
+    }
+  }
+
+  function refreshAll() {
+    loadSummary();
+    loadStock();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadSummary();
+    loadStock();
+  });
+</script>
+
+</body>
+</html>

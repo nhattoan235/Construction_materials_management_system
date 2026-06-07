@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý tài chính & công nợ - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .stat-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 20px;
+    }
+    .amount-red { color: #dc2626; font-weight: 700; }
+    .amount-green { color: #16a34a; font-weight: 700; }
+    .amount-orange { color: #d97706; font-weight: 700; }
+    .progress-bar-wrap {
+      background: var(--border-color);
+      border-radius: 4px;
+      height: 6px;
+      width: 100%;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--kh-primary);
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:2000; justify-content:center; align-items:center; }
+    .modal-overlay.show { display:flex; }
+    .modal-box { background:var(--bg-card); border-radius:12px; padding:28px; max-width:520px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+    .modal-box h5 { font-size:17px; font-weight:700; margin-bottom:20px; }
+    .detail-info-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-color); font-size:13px; }
+    .detail-info-row:last-child { border-bottom: none; }
+    .detail-info-row .label { color: var(--text-muted); }
+    .detail-info-row .value { font-weight: 600; }
+    .loading-spinner { text-align:center; padding:40px; color:var(--text-muted); font-size:14px; }
+  </style>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+
+  <div class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div>
+        <h4 style="font-weight: 700;">Quản Lý Tài Chính &amp; Công Nợ</h4>
+        <p class="text-muted-desc">Theo dõi công nợ khách hàng, ghi nhận thu tiền và quản lý phiếu thu.</p>
+      </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="dashboard-grid" id="stat-cards">
+      <div class="stat-card" style="border-left: 4px solid var(--kh-primary);">
+        <div class="stat-card-title">Tổng Phải Thu</div>
+        <div class="stat-card-value" id="stat-phat-thu" style="color: var(--kh-dark);">Đang tải...</div>
+        <div class="stat-card-desc" id="stat-so-khach">— khách còn dư nợ</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid #ef4444;">
+        <div class="stat-card-title">Còn Phải Thu</div>
+        <div class="stat-card-value" id="stat-con-no" style="color: #dc2626;">Đang tải...</div>
+        <div class="stat-card-desc">Chưa thu được từ khách hàng</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid #16a34a;">
+        <div class="stat-card-title">Đã Thu Thực Tế</div>
+        <div class="stat-card-value" id="stat-da-thu" style="color: #16a34a;">Đang tải...</div>
+        <div class="stat-card-desc" id="stat-so-phieu">— phiếu thu</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid var(--kd-primary);">
+        <div class="stat-card-title">Tổng Doanh Thu</div>
+        <div class="stat-card-value" id="stat-doanh-thu" style="color: var(--kd-dark);">Đang tải...</div>
+        <div class="stat-card-desc" id="stat-so-don">— đơn hàng</div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="tabs-container">
+      <button class="tab-btn active" onclick="switchTab('customer')" id="btn-tab-customer">Nợ Khách Hàng (Phải Thu)</button>
+      <button class="tab-btn" onclick="switchTab('payment')" id="btn-tab-payment">Lịch Sử Thu Tiền</button>
+      <button class="tab-btn" onclick="switchTab('collect')" id="btn-tab-collect">Ghi Nhận Thu Tiền</button>
+    </div>
+
+    <!-- TAB 1: NỢ KHÁCH HÀNG -->
+    <div id="tab-customer" class="tab-content active">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Danh Sách Công Nợ Khách Hàng</span>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="search-debt" class="form-control" placeholder="Tìm khách hàng..." style="width:220px; font-size:13px;" oninput="filterDebts()">
+          </div>
+        </div>
+        <div class="card-body" style="padding:0;">
+          <div id="debt-loading" class="loading-spinner">⏳ Đang tải dữ liệu công nợ...</div>
+          <table class="table" id="debt-table" style="display:none;">
+            <thead>
+              <tr>
+                <th>Khách Hàng</th>
+                <th>Đơn Hàng / Hợp Đồng</th>
+                <th class="text-right">Tổng Tiền Nợ</th>
+                <th class="text-right">Đã Thanh Toán</th>
+                <th class="text-right">Còn Lại</th>
+                <th>Hạn Thanh Toán</th>
+                <th>Tiến Độ</th>
+                <th>Trạng Thái</th>
+                <th style="text-align:center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="debt-tbody"></tbody>
+          </table>
+          <div id="debt-empty" style="display:none; text-align:center; padding:40px; color:var(--text-muted);">
+            ✅ Không có công nợ nào cần thu. Tất cả khách hàng đã thanh toán đầy đủ!
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: LỊCH SỬ THU TIỀN -->
+    <div id="tab-payment" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Lịch Sử Phiếu Thu</span>
+          <button class="btn btn-secondary btn-sm" onclick="loadPayments()">🔄 Làm mới</button>
+        </div>
+        <div class="card-body" style="padding:0;">
+          <div id="payment-loading" class="loading-spinner">⏳ Đang tải lịch sử thanh toán...</div>
+          <table class="table" id="payment-table" style="display:none;">
+            <thead>
+              <tr>
+                <th>Mã Phiếu Thu</th>
+                <th>Khách Hàng</th>
+                <th>Đơn Hàng</th>
+                <th class="text-right">Số Tiền</th>
+                <th>Hình Thức</th>
+                <th>Mã GD Ngân Hàng</th>
+                <th>Người Thu</th>
+                <th>Ngày Thu</th>
+              </tr>
+            </thead>
+            <tbody id="payment-tbody"></tbody>
+          </table>
+          <div id="payment-empty" style="display:none; text-align:center; padding:40px; color:var(--text-muted);">
+            📋 Chưa có phiếu thu nào được ghi nhận.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: GHI NHẬN THU TIỀN -->
+    <div id="tab-collect" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Phiếu Ghi Nhận Thu Tiền</span>
+        </div>
+        <div class="card-body">
+          <form onsubmit="handleCollect(event)" id="collect-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Công nợ cần thu <span style="color:#dc2626;">*</span></label>
+                <select class="form-control" id="coll-cong-no-id" required onchange="onDebtSelect()">
+                  <option value="">-- Chọn công nợ --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Hình thức thanh toán</label>
+                <select class="form-control" id="coll-hinh-thuc" required>
+                  <option value="CHUYEN_KHOAN">Chuyển khoản Ngân hàng</option>
+                  <option value="TIEN_MAT">Tiền mặt</option>
+                  <option value="THE">Thẻ ngân hàng</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Debt info preview -->
+            <div id="debt-preview" style="display:none; background:var(--bg-main); border:1px solid var(--border-color); border-radius:8px; padding:16px; margin-bottom:16px;">
+              <div style="font-size:13px; font-weight:600; margin-bottom:10px; color:var(--kh-primary);">📋 Thông tin công nợ đã chọn</div>
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:13px;">
+                <div><span style="color:var(--text-muted);">Khách hàng:</span> <strong id="prev-ten">—</strong></div>
+                <div><span style="color:var(--text-muted);">Đơn hàng:</span> <strong id="prev-dh">—</strong></div>
+                <div><span style="color:var(--text-muted);">Tổng nợ:</span> <strong id="prev-tong">—</strong></div>
+                <div><span style="color:var(--text-muted);">Đã thu:</span> <strong id="prev-da-tt" class="amount-green">—</strong></div>
+                <div><span style="color:var(--text-muted);">Còn lại:</span> <strong id="prev-con-lai" class="amount-red">—</strong></div>
+                <div><span style="color:var(--text-muted);">Hạn TT:</span> <strong id="prev-han">—</strong></div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Số tiền thu (VNĐ) <span style="color:#dc2626;">*</span></label>
+                <input type="number" id="coll-so-tien" class="form-control" placeholder="Nhập số tiền thu" required min="1000">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Mã giao dịch ngân hàng (nếu có)</label>
+                <input type="text" id="coll-ma-gd" class="form-control" placeholder="FT2600xxxxxxxx">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Ghi chú nội dung thu</label>
+              <textarea class="form-control" id="coll-ghi-chu" rows="3" placeholder="Ví dụ: Thu tiền đợt 2 của hợp đồng cung cấp thép..."></textarea>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px;">
+              <button type="button" class="btn btn-secondary" onclick="resetCollectForm()">Đặt lại</button>
+              <button type="submit" class="btn btn-warning" id="collect-submit-btn">✅ Xác nhận Thu Tiền</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div th:replace="~{bo_cuc/footer :: footer}"></div>
+  </div>
+</div>
+
+<!-- Modal: Chi tiết công nợ -->
+<div class="modal-overlay" id="debt-detail-modal">
+  <div class="modal-box" style="max-width:480px;">
+    <h5>📊 Chi tiết công nợ</h5>
+    <div id="debt-detail-content"></div>
+    <div style="display:flex; gap:10px; margin-top:20px; justify-content:flex-end;">
+      <button class="btn btn-warning btn-sm" id="quick-collect-btn" onclick="goToCollect()">Thu Tiền Ngay</button>
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('debt-detail-modal')">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let allDebts = [];
+  let selectedDebtId = null;
+  const username = localStorage.getItem('username') || '';
+
+  function fmt(num) {
+    if (num == null) return '0đ';
+    return Number(num).toLocaleString('vi-VN') + 'đ';
+  }
+
+  function switchTab(tab) {
+    ['customer','payment','collect'].forEach(t => {
+      document.getElementById('btn-tab-' + t).classList.remove('active');
+      document.getElementById('tab-' + t).classList.remove('active');
+    });
+    document.getElementById('btn-tab-' + tab).classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+    if (tab === 'payment') loadPayments();
+  }
+
+  function loadSummary() {
+    fetch('/api/accounting/summary')
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById('stat-phat-thu').textContent = fmt(d.tongPhatThu);
+        document.getElementById('stat-con-no').textContent = fmt(d.tongConNo);
+        document.getElementById('stat-da-thu').textContent = fmt(d.tongDaThu);
+        document.getElementById('stat-doanh-thu').textContent = fmt(d.tongDoanhThu);
+        document.getElementById('stat-so-khach').textContent = d.soKhachConNo + ' khách còn dư nợ';
+        document.getElementById('stat-so-phieu').textContent = d.soPhieuThu + ' phiếu thu';
+        document.getElementById('stat-so-don').textContent = d.tongDonHang + ' đơn hàng';
+      }).catch(() => {});
+  }
+
+  function loadDebts() {
+    document.getElementById('debt-loading').style.display = 'block';
+    document.getElementById('debt-table').style.display = 'none';
+    document.getElementById('debt-empty').style.display = 'none';
+
+    fetch('/api/accounting/debts/customers')
+      .then(r => r.json())
+      .then(data => {
+        allDebts = data;
+        document.getElementById('debt-loading').style.display = 'none';
+        renderDebts(data);
+        populateDebtSelect(data);
+      }).catch(() => {
+        document.getElementById('debt-loading').innerHTML = '❌ Lỗi tải dữ liệu. Vui lòng thử lại.';
+      });
+  }
+
+  function renderDebts(data) {
+    const tbody = document.getElementById('debt-tbody');
+    // Filter only those with remaining balance
+    const activeDebts = data.filter(cn => parseFloat(cn.soTienConLai) > 0);
+    
+    if (activeDebts.length === 0) {
+      document.getElementById('debt-table').style.display = 'none';
+      document.getElementById('debt-empty').style.display = 'block';
+      return;
+    }
+
+    tbody.innerHTML = activeDebts.map(cn => {
+      const total = parseFloat(cn.soTienNo) || 0;
+      const paid = parseFloat(cn.soTienDaTt) || 0;
+      const remaining = parseFloat(cn.soTienConLai) || 0;
+      const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
+      const refStr = [cn.maDonHang, cn.maHopDong].filter(Boolean).join(' / ') || '—';
+      const statusBadge = remaining <= 0
+        ? '<span class="badge badge-green">Đã trả đủ</span>'
+        : '<span class="badge badge-orange">Còn nợ</span>';
+      
+      return `<tr>
+        <td style="font-weight:600;">${cn.khachHangTen}<br><small style="color:var(--text-muted);">${cn.soDienThoai}</small></td>
+        <td>${refStr}</td>
+        <td class="text-right">${fmt(cn.soTienNo)}</td>
+        <td class="text-right amount-green">${fmt(cn.soTienDaTt)}</td>
+        <td class="text-right amount-red">${fmt(cn.soTienConLai)}</td>
+        <td>${cn.hanThanhToan || '—'}</td>
+        <td style="min-width:100px;">
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" style="width:${pct}%;"></div>
+          </div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">${pct}% đã thu</div>
+        </td>
+        <td>${statusBadge}</td>
+        <td style="text-align:center;">
+          <button class="btn btn-warning btn-sm" onclick="openDebtDetail(${cn.id})">Thu tiền</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('debt-table').style.display = 'table';
+  }
+
+  function filterDebts() {
+    const q = document.getElementById('search-debt').value.toLowerCase();
+    const filtered = allDebts.filter(cn =>
+      cn.khachHangTen.toLowerCase().includes(q) ||
+      (cn.maDonHang || '').toLowerCase().includes(q) ||
+      (cn.maHopDong || '').toLowerCase().includes(q)
+    );
+    renderDebts(filtered);
+  }
+
+  function populateDebtSelect(data) {
+    const sel = document.getElementById('coll-cong-no-id');
+    sel.innerHTML = '<option value="">-- Chọn công nợ --</option>';
+    data.filter(cn => parseFloat(cn.soTienConLai) > 0).forEach(cn => {
+      const refStr = cn.maDonHang || cn.maHopDong || 'CN-' + cn.id;
+      sel.innerHTML += `<option value="${cn.id}" 
+        data-ten="${cn.khachHangTen}"
+        data-dh="${cn.maDonHang || ''}"
+        data-tong="${cn.soTienNo}"
+        data-da="${cn.soTienDaTt}"
+        data-con="${cn.soTienConLai}"
+        data-han="${cn.hanThanhToan || ''}"
+      >${cn.khachHangTen} — ${refStr} (còn ${fmt(cn.soTienConLai)})</option>`;
+    });
+  }
+
+  function onDebtSelect() {
+    const sel = document.getElementById('coll-cong-no-id');
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt.value) {
+      document.getElementById('debt-preview').style.display = 'none';
+      return;
+    }
+    document.getElementById('prev-ten').textContent = opt.dataset.ten;
+    document.getElementById('prev-dh').textContent = opt.dataset.dh || '—';
+    document.getElementById('prev-tong').textContent = fmt(opt.dataset.tong);
+    document.getElementById('prev-da-tt').textContent = fmt(opt.dataset.da);
+    document.getElementById('prev-con-lai').textContent = fmt(opt.dataset.con);
+    document.getElementById('prev-han').textContent = opt.dataset.han || '—';
+    document.getElementById('coll-so-tien').value = opt.dataset.con;
+    document.getElementById('debt-preview').style.display = 'block';
+    selectedDebtId = parseInt(opt.value);
+  }
+
+  function openDebtDetail(congNoId) {
+    const cn = allDebts.find(d => d.id === congNoId);
+    if (!cn) return;
+    selectedDebtId = congNoId;
+
+    const remaining = parseFloat(cn.soTienConLai) || 0;
+    const refStr = [cn.maDonHang, cn.maHopDong].filter(Boolean).join(' / ') || '—';
+
+    document.getElementById('debt-detail-content').innerHTML = `
+      <div class="detail-info-row"><span class="label">Khách hàng</span><span class="value">${cn.khachHangTen}</span></div>
+      <div class="detail-info-row"><span class="label">Điện thoại</span><span class="value">${cn.soDienThoai || '—'}</span></div>
+      <div class="detail-info-row"><span class="label">Mã đơn / Hợp đồng</span><span class="value">${refStr}</span></div>
+      <div class="detail-info-row"><span class="label">Ngày phát sinh</span><span class="value">${cn.ngayPhatSinh || '—'}</span></div>
+      <div class="detail-info-row"><span class="label">Tổng tiền nợ</span><span class="value">${fmt(cn.soTienNo)}</span></div>
+      <div class="detail-info-row"><span class="label">Đã thanh toán</span><span class="value amount-green">${fmt(cn.soTienDaTt)}</span></div>
+      <div class="detail-info-row"><span class="label">Còn phải thu</span><span class="value amount-red" style="font-size:16px;">${fmt(cn.soTienConLai)}</span></div>
+      <div class="detail-info-row"><span class="label">Hạn thanh toán</span><span class="value">${cn.hanThanhToan || '—'}</span></div>
+      <div class="detail-info-row"><span class="label">Trạng thái</span><span class="value">${remaining <= 0 ? '<span class="badge badge-green">Đã trả đủ</span>' : '<span class="badge badge-orange">Còn nợ</span>'}</span></div>
+    `;
+    document.getElementById('debt-detail-modal').classList.add('show');
+  }
+
+  function goToCollect() {
+    closeModal('debt-detail-modal');
+    switchTab('collect');
+    if (selectedDebtId) {
+      const sel = document.getElementById('coll-cong-no-id');
+      sel.value = selectedDebtId;
+      onDebtSelect();
+    }
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+
+  function loadPayments() {
+    document.getElementById('payment-loading').style.display = 'block';
+    document.getElementById('payment-table').style.display = 'none';
+    document.getElementById('payment-empty').style.display = 'none';
+
+    fetch('/api/accounting/payments')
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('payment-loading').style.display = 'none';
+        if (data.length === 0) {
+          document.getElementById('payment-empty').style.display = 'block';
+          return;
+        }
+        const hinhThucLabel = { 'CHUYEN_KHOAN': 'Chuyển khoản', 'TIEN_MAT': 'Tiền mặt', 'THE': 'Thẻ NH' };
+        document.getElementById('payment-tbody').innerHTML = data.map(tt => `
+          <tr>
+            <td style="font-weight:600; color:var(--kh-primary);">${tt.maThanhToan}</td>
+            <td>${tt.khachHangTen || '—'}</td>
+            <td>${tt.maDonHang || '—'}</td>
+            <td class="text-right amount-green" style="font-size:15px;">${fmt(tt.soTien)}</td>
+            <td><span class="badge badge-green">${hinhThucLabel[tt.hinhThuc] || tt.hinhThuc}</span></td>
+            <td style="font-size:12px; font-family:monospace;">${tt.maGiaoDich || '—'}</td>
+            <td>${tt.nguoiThu || '—'}</td>
+            <td style="font-size:12px;">${tt.ngayThanhToan || '—'}</td>
+          </tr>
+        `).join('');
+        document.getElementById('payment-table').style.display = 'table';
+      }).catch(() => {
+        document.getElementById('payment-loading').innerHTML = '❌ Lỗi tải dữ liệu.';
+      });
+  }
+
+  async function handleCollect(e) {
+    e.preventDefault();
+    const congNoId = document.getElementById('coll-cong-no-id').value;
+    const soTien = document.getElementById('coll-so-tien').value;
+    const hinhThuc = document.getElementById('coll-hinh-thuc').value;
+    const maGd = document.getElementById('coll-ma-gd').value;
+    const ghiChu = document.getElementById('coll-ghi-chu').value;
+
+    if (!congNoId) { alert('Vui lòng chọn công nợ cần thu tiền!'); return; }
+    if (!soTien || parseFloat(soTien) <= 0) { alert('Vui lòng nhập số tiền hợp lệ!'); return; }
+
+    const btn = document.getElementById('collect-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Đang xử lý...';
+
+    try {
+      const res = await fetch('/api/accounting/debts/collect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          congNoId: parseInt(congNoId),
+          soTien: parseFloat(soTien),
+          hinhThuc,
+          maGiaoDich: maGd,
+          ghiChu,
+          username
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('✅ ' + data.message + '\nSố tiền thu: ' + fmt(data.soTienThu) + '\nCòn lại: ' + fmt(data.conLai));
+        resetCollectForm();
+        loadDebts();
+        loadSummary();
+      } else {
+        alert('❌ Lỗi: ' + data);
+      }
+    } catch {
+      alert('❌ Lỗi kết nối máy chủ. Thử lại sau.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '✅ Xác nhận Thu Tiền';
+    }
+  }
+
+  function resetCollectForm() {
+    document.getElementById('collect-form').reset();
+    document.getElementById('debt-preview').style.display = 'none';
+    selectedDebtId = null;
+  }
+
+  // Close modal on overlay click
+  document.getElementById('debt-detail-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal('debt-detail-modal');
+  });
+
+  // Init
+  loadSummary();
+  loadDebts();
+</script>
+
+</body>
+</html>

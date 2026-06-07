@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chi tiết sản phẩm - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/custom-alert.js"></script>
+  <style>
+    .detail-container {
+      max-width: 1000px;
+      margin: 100px auto 40px auto;
+      padding: 0 24px;
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 32px;
+    }
+    .detail-image-card {
+      background-color: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 160px;
+      box-shadow: var(--shadow-card);
+    }
+    .detail-info-card {
+      background-color: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .detail-category {
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--kh-primary);
+      margin-bottom: 8px;
+      letter-spacing: 0.05em;
+    }
+    .detail-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 16px;
+      line-height: 1.3;
+    }
+    .detail-spec-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 14px;
+    }
+    .detail-spec-row:last-child {
+      border-bottom: none;
+    }
+    .detail-price-box {
+      background-color: #f8fafc;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border-subtle);
+    }
+    
+    /* Navbar override matching user screenshot */
+    .landing-header {
+      height: 70px;
+      background-color: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 80px;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+    }
+    .landing-logo-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 18px;
+      color: #2c3e3b;
+      text-decoration: none;
+    }
+    .landing-logo-box {
+      width: 42px;
+      height: 32px;
+      background-color: #90bdae;
+      color: #ffffff;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .landing-nav {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+    .landing-nav-link {
+      text-decoration: none;
+      color: #718096;
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.2s ease;
+    }
+    .landing-nav-link:hover, .landing-nav-link.active {
+      color: #76a89c;
+    }
+  </style>
+</head>
+<body style="background-color: #f4f9f8;">
+
+  <!-- Header matching index.html/user screenshot -->
+  <header class="landing-header">
+    <a href="/" class="landing-logo-block">
+      <div class="landing-logo-box">VL</div>
+      <span>Vật Liệu Xây Dựng</span>
+    </a>
+    
+    <nav>
+      <ul class="landing-nav">
+        <li><a href="/" class="landing-nav-link">Trang chủ</a></li>
+        <li><a href="/san_pham" class="landing-nav-link active">Sản phẩm</a></li>
+        <li><a href="/khach_hang/gio_hang" class="landing-nav-link">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+          Giỏ hàng <span id="headerCartBadge" style="background-color: #e11d48; color: white; border-radius: 50%; font-size: 11px; padding: 2px 6px; margin-left: 4px; display: none;">0</span>
+        </a></li>
+        <li><a href="/login" class="landing-nav-link">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          Đăng nhập
+        </a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="detail-container">
+    <div style="margin-bottom: 24px;">
+      <a href="/san_pham" style="display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 600;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        Quay lại danh sách sản phẩm
+      </a>
+    </div>
+
+    <div class="detail-grid" th:if="${prod != null}">
+      <!-- Image/Emoji Box -->
+      <div class="detail-image-card"
+           th:style="'background-color: ' + 
+             (${prod.danhMuc != null && prod.danhMuc.maDanhMuc == 'DM-001'} ? '#e5ebe9' : 
+             (${prod.danhMuc != null && prod.danhMuc.maDanhMuc == 'DM-002'} ? '#e9f1f0' : 
+             (${prod.danhMuc != null && prod.danhMuc.maDanhMuc == 'DM-003'} ? '#f0f4ee' : 
+             (${prod.danhMuc != null && prod.danhMuc.maDanhMuc == 'DM-004'} ? '#f4ece9' : '#eceff1'))))">
+        <!-- If image url -->
+        <img th:if="${prod.anhUrl != null && (prod.anhUrl.startsWith('/') || prod.anhUrl.startsWith('http'))}" 
+             th:src="${prod.anhUrl}" 
+             style="width: 100%; height: 100%; object-fit: cover; border-radius: 20px;" />
+        <!-- If emoji -->
+        <span th:unless="${prod.anhUrl != null && (prod.anhUrl.startsWith('/') || prod.anhUrl.startsWith('http'))}" 
+              th:text="${prod.anhUrl != null ? prod.anhUrl : '📦'}">📦</span>
+      </div>
+
+      <!-- Information details -->
+      <div class="detail-info-card">
+        <div>
+          <div class="detail-category" th:text="${prod.danhMuc != null ? prod.danhMuc.ten : 'Vật liệu xây dựng'}">Phân loại</div>
+          <h1 class="detail-title" th:text="${prod.tenHang}">Tên mặt hàng</h1>
+
+          <div class="detail-price-box">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+              <span style="font-size: 13px; color: var(--text-muted); font-weight: 500;">Giá bán lẻ công bố:</span>
+              <div>
+                <span style="font-size: 24px; font-weight: 800; color: var(--kh-primary);" th:text="${#numbers.formatDecimal(prod.giaBanLe, 0, 'COMMA', 0, 'POINT')} + 'đ'">0đ</span>
+                <span style="font-size: 14px; color: var(--text-muted);" th:text="' / ' + ${prod.donViTinh}"> / cây</span>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+              <span style="font-size: 13px; color: var(--text-muted); font-weight: 500;">Giá bán sỉ (đại lý/số lượng lớn):</span>
+              <div>
+                <span style="font-size: 18px; font-weight: 700; color: var(--text-main);" th:text="${prod.giaBanSi != null ? #numbers.formatDecimal(prod.giaBanSi, 0, 'COMMA', 0, 'POINT') + 'đ' : ''}">0đ</span>
+                <span style="font-size: 13px; color: var(--text-muted);" th:text="' / ' + ${prod.donViTinh}"> / cây</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 24px;">
+            <h5 style="font-weight: 700; margin-bottom: 12px; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">Thông số kỹ thuật</h5>
+            <div class="detail-spec-row">
+              <span class="text-muted">Mã vật tư</span>
+              <strong th:text="${prod.maHang}">HH-001</strong>
+            </div>
+            <div class="detail-spec-row">
+              <span class="text-muted">Quy cách sản phẩm</span>
+              <strong th:text="${prod.quyCach}">Tiêu chuẩn chất lượng</strong>
+            </div>
+            <div class="detail-spec-row">
+              <span class="text-muted">Đơn vị giao dịch</span>
+              <strong th:text="${prod.donViTinh}">đơn vị</strong>
+            </div>
+            <div class="detail-spec-row">
+              <span class="text-muted">Trạng thái</span>
+              <span class="badge badge-green" th:text="${prod.trangThai}">Đang kinh doanh</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+          <a href="/san_pham" class="btn btn-secondary" style="flex: 1;">Quay lại</a>
+          <button class="btn btn-secondary" style="flex: 1.5; background-color: #e6f0ed; color: #538479; border: 1px solid #bfdbd5;" onclick="addToCartDetailed()">Thêm vào giỏ</button>
+          <button class="btn btn-primary" style="flex: 1.5;" onclick="buyNowDetailed()">Mua ngay</button>
+        </div>
+      </div>
+    </div>
+    
+    <div th:if="${prod == null}" style="text-align: center; padding: 80px 0;">
+      <h3 style="color: var(--text-muted);">Không tìm thấy sản phẩm yêu cầu hoặc mã ID không hợp lệ.</h3>
+      <a href="/san_pham" class="btn btn-primary mt-20">Quay lại trang sản phẩm</a>
+    </div>
+  </div>
+
+  <footer style="text-align: center; color: #a0aec0; font-size: 13px; padding: 40px 0; border-top: 1px solid #e2e8f0; background-color: #fafbfc; margin-top: 80px;">
+    &copy; 2026 Cửa hàng Vật liệu Xây dựng Sài Gòn CMC. Dự án Thực hành Phân tích Thiết kế Hệ thống.
+  </footer>
+
+  <script th:inline="javascript">
+    const productInfo = {
+      id: [[${prod != null ? prod.id : 0}]],
+      tenHang: [[${prod != null ? prod.tenHang : ''}]],
+      donGia: [[${prod != null ? prod.giaBanLe : 0}]],
+      donViTinh: [[${prod != null ? prod.donViTinh : ''}]],
+      anhUrl: [[${prod != null && prod.anhUrl != null ? prod.anhUrl : '📦'}]],
+      quyCach: [[${prod != null ? prod.quyCach : ''}]]
+    };
+
+    function addToCartDetailed() {
+      const role = localStorage.getItem('demo_role') || 'KHACH_HANG';
+      if (role !== 'KHACH_HANG') {
+        alert('Chức năng thêm vào giỏ hàng chỉ dành riêng cho vai trò Khách Hàng. Vui lòng chuyển vai trò sang Khách Hàng.');
+        return;
+      }
+
+      let cart = [];
+      const stored = localStorage.getItem('shopping_cart');
+      if (stored) {
+        try { cart = JSON.parse(stored); } catch(e) {}
+      }
+
+      const existingIndex = cart.findIndex(item => item.id === productInfo.id);
+      if (existingIndex > -1) {
+        cart[existingIndex].soLuong = Number(cart[existingIndex].soLuong) + 1;
+      } else {
+        cart.push({
+          id: productInfo.id,
+          tenHang: productInfo.tenHang,
+          donGia: productInfo.donGia,
+          donViTinh: productInfo.donViTinh,
+          anhUrl: productInfo.anhUrl,
+          quyCach: productInfo.quyCach,
+          soLuong: 1
+        });
+      }
+
+      localStorage.setItem('shopping_cart', JSON.stringify(cart));
+      updateHeaderCartBadge();
+      alert('Đã thêm sản phẩm "' + productInfo.tenHang + '" vào giỏ hàng!');
+    }
+
+    function buyNowDetailed() {
+      const role = localStorage.getItem('demo_role') || 'KHACH_HANG';
+      if (role !== 'KHACH_HANG') {
+        alert('Chức năng mua hàng chỉ dành riêng cho vai trò Khách Hàng. Vui lòng chuyển vai trò sang Khách Hàng.');
+        return;
+      }
+
+      let cart = [];
+      const stored = localStorage.getItem('shopping_cart');
+      if (stored) {
+        try { cart = JSON.parse(stored); } catch(e) {}
+      }
+
+      const existingIndex = cart.findIndex(item => item.id === productInfo.id);
+      if (existingIndex === -1) {
+        cart.push({
+          id: productInfo.id,
+          tenHang: productInfo.tenHang,
+          donGia: productInfo.donGia,
+          donViTinh: productInfo.donViTinh,
+          anhUrl: productInfo.anhUrl,
+          quyCach: productInfo.quyCach,
+          soLuong: 1
+        });
+      }
+
+      localStorage.setItem('shopping_cart', JSON.stringify(cart));
+      window.location.href = '/khach_hang/gio_hang';
+    }
+
+    function updateHeaderCartBadge() {
+      let cart = [];
+      const stored = localStorage.getItem('shopping_cart');
+      if (stored) {
+        try { cart = JSON.parse(stored); } catch(e) {}
+      }
+      const count = cart.reduce((sum, item) => sum + Number(item.soLuong), 0);
+      const badge = document.getElementById('headerCartBadge');
+      if (badge) {
+        if (count > 0) {
+          badge.innerText = count;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    }
+
+    function logoutUser() {
+      localStorage.removeItem('logged_in_name');
+      localStorage.removeItem('logged_in_username');
+      localStorage.setItem('demo_role', 'KHACH_HANG');
+    }
+
+    function initUserSession() {
+      const loggedInName = localStorage.getItem('logged_in_name');
+      if (loggedInName) {
+        const navList = document.querySelector('.landing-nav');
+        if (navList) {
+          const loginItem = navList.querySelector('li:last-child');
+          if (loginItem) {
+            loginItem.innerHTML = 
+              '<div style="position: relative; display: inline-block;" id="landingProfileBtn">' +
+                '<div style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #718096; font-size: 14px; font-weight: 500; padding: 4px 8px; border-radius: 8px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor=\'#cbd5e122\'" onmouseout="this.style.backgroundColor=\'transparent\'">' +
+                  '<svg width="30" height="30" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="border-radius: 50%; background-color: #cbd5e1; border: 1px solid #cbd5e188;">' +
+                    '<path d="M18 18C21.3137 18 24 15.3137 24 12C24 8.68629 21.3137 6 18 6C14.6863 6 12 8.68629 12 12C12 15.3137 14.6863 18 18 18Z" fill="#94a3b8"/>' +
+                    '<path d="M18 20C12.4772 20 8 24.4772 8 30H28C28 24.4772 23.5228 20 18 20Z" fill="#94a3b8"/>' +
+                  '</svg>' +
+                  '<span>' + loggedInName + '</span>' +
+                '</div>' +
+                '<!-- Dropdown -->' +
+                '<div class="dropdown-menu" id="landingProfileMenu" style="display: none; position: absolute; top: 38px; right: 0; background-color: #ffffff; border: 1px solid #cbd5e188; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); width: 180px; z-index: 1000; overflow: hidden; padding: 6px 0;">' +
+                  '<a href="/dung_chung/thong_tin_ca_nhan" style="display: block; padding: 10px 16px; font-size: 13px; color: #1e293b; text-decoration: none; font-weight: 500; text-align: left;">' +
+                    'Hồ sơ cá nhân' +
+                  '</a>' +
+                  '<a href="/khach_hang/don_hang_cua_toi" id="landingDropdownOrderLink" style="display: block; padding: 10px 16px; font-size: 13px; color: #1e293b; text-decoration: none; font-weight: 500; text-align: left;">' +
+                    'Đơn hàng của tôi' +
+                  '</a>' +
+                  '<div style="border-top: 1px solid #e2e8f0; margin: 6px 0;"></div>' +
+                  '<a href="/login" onclick="logoutUser()" style="display: block; padding: 10px 16px; font-size: 13px; color: #ef4444; text-decoration: none; font-weight: 600; text-align: left;">' +
+                    'Đăng xuất' +
+                  '</a>' +
+                '</div>' +
+              '</div>';
+            
+            const btn = document.getElementById('landingProfileBtn');
+            const menu = document.getElementById('landingProfileMenu');
+            
+            const role = localStorage.getItem('demo_role');
+            const orderLink = document.getElementById('landingDropdownOrderLink');
+            if (orderLink && role !== 'KHACH_HANG') {
+              orderLink.style.display = 'none';
+            }
+
+            if (btn && menu) {
+              btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+              });
+              document.addEventListener('click', function() {
+                menu.style.display = 'none';
+              });
+            }
+          }
+        }
+      }
+    }
+
+    function initPage() {
+      initUserSession();
+      updateHeaderCartBadge();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPage);
+    } else {
+      initPage();
+    }
+  </script>
+</body>
+</html>

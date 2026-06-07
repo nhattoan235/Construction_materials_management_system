@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý hợp đồng - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/custom-alert.js"></script>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+  
+  <div class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div>
+        <h4 style="font-weight: 700;">Quản Lý Hợp Đồng</h4>
+        <p class="text-muted-desc">Quản lý và lập hợp đồng kinh tế cung ứng vật liệu xây dựng dài hạn hoặc theo công trình.</p>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="tabs-container">
+      <button class="tab-btn active" onclick="switchContractTab('list')" id="btn-list-tab">Danh Sách Hợp Đồng</button>
+      <button class="tab-btn" onclick="switchContractTab('create')" id="btn-create-tab">Soạn Thảo Hợp Đồng Mới</button>
+    </div>
+
+    <!-- TAB 1: DANH SÁCH HỢP ĐỒNG -->
+    <div id="list-tab-content" class="tab-content active">
+      <div class="card">
+        <div class="card-body" style="padding: 0;">
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Mã Hợp Đồng</th>
+                  <th>Đơn Hàng Liên Kết</th>
+                  <th>Khách Hàng</th>
+                  <th>Ngày Ký</th>
+                  <th class="text-right">Giá Trị Hợp Đồng</th>
+                  <th class="text-right">Tiền Đặt Cọc</th>
+                  <th>Trạng Thái</th>
+                  <th style="text-align: center;">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody id="contractsTableBody">
+                <tr>
+                  <td colspan="8" style="text-align: center; color: var(--text-muted);">Đang tải danh sách hợp đồng...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: SOẠN THẢO HỢP ĐỒNG MỚI -->
+    <div id="create-tab-content" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Khởi tạo thông tin hợp đồng kinh tế</span>
+        </div>
+        <div class="card-body">
+          <form onsubmit="handleCreateContract(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Chọn Đơn Hàng cần liên kết</label>
+                <select class="form-control" id="contract-order-select" onchange="handleOrderSelect()" required>
+                  <option value="">Chọn đơn đặt hàng đã duyệt...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Khách hàng bên B</label>
+                <input type="text" class="form-control" id="contract-customer-name" value="" style="background-color: #f1f5f9;" readonly required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Ngày ký kết</label>
+                <input type="date" class="form-control" id="contract-sign-date" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ngày có hiệu lực</label>
+                <input type="date" class="form-control" id="contract-start-date" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Hạn mức chiết khấu thương mại (%)</label>
+                <input type="number" class="form-control" id="contract-discount" value="0" min="0" max="20" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Yêu cầu đặt cọc hợp đồng (VNĐ)</label>
+                <input type="number" class="form-control" id="contract-deposit" value="0" min="0" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Điều khoản thanh toán & Giao nhận</label>
+              <textarea class="form-control" id="contract-terms" rows="3" required>Thanh toán bằng chuyển khoản hoặc tiền mặt. Đặt cọc trước 30% giá trị hợp đồng khi ký kết. Giao hàng đến chân công trình trong vòng 3 ngày kể từ khi thanh toán đợt 1.</textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+              <button type="button" class="btn btn-secondary" onclick="switchContractTab('list')">Quay lại</button>
+              <button type="submit" class="btn btn-primary">Tạo Hợp Đồng</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div th:replace="~{bo_cuc/footer :: footer}"></div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+  let globalContracts = [];
+  let globalApprovedOrders = [];
+
+  function switchContractTab(tab) {
+    document.getElementById('btn-list-tab').classList.remove('active');
+    document.getElementById('btn-create-tab').classList.remove('active');
+    document.getElementById('list-tab-content').classList.remove('active');
+    document.getElementById('create-tab-content').classList.remove('active');
+    
+    if (tab === 'list') {
+      document.getElementById('btn-list-tab').classList.add('active');
+      document.getElementById('list-tab-content').classList.add('active');
+      loadAllContracts();
+    } else {
+      document.getElementById('btn-create-tab').classList.add('active');
+      document.getElementById('create-tab-content').classList.add('active');
+      loadApprovedOrdersNoContract();
+      // Set default dates
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('contract-sign-date').value = today;
+      document.getElementById('contract-start-date').value = today;
+    }
+  }
+
+  function loadAllContracts() {
+    const tbody = document.getElementById('contractsTableBody');
+    fetch('/api/sales/contracts')
+      .then(res => res.json())
+      .then(contracts => {
+        globalContracts = contracts;
+        renderContractsTable();
+      })
+      .catch(err => {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #ef4444;">Lỗi tải danh sách hợp đồng: ' + err.message + '</td></tr>';
+      });
+  }
+
+  function renderContractsTable() {
+    const tbody = document.getElementById('contractsTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    if (globalContracts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Không có hợp đồng nào.</td></tr>';
+      return;
+    }
+
+    globalContracts.forEach(hd => {
+      const tr = document.createElement('tr');
+      
+      let actionHtml = '';
+      if (hd.trangThai === 'NHAP') {
+        actionHtml += '<button class="btn btn-success btn-sm" onclick="activateContract(\'' + hd.maHopDong + '\')">Kích Hoạt</button>';
+        actionHtml += ' <button class="btn btn-danger btn-sm" onclick="cancelContract(\'' + hd.maHopDong + '\')">Hủy</button>';
+      } else {
+        actionHtml += '<span style="font-size: 12px; color: var(--text-muted);">Đã chốt</span>';
+      }
+
+      tr.innerHTML = 
+        '<td style="font-weight: 600;">' + hd.maHopDong + '</td>' +
+        '<td>' + hd.maDonHang + '</td>' +
+        '<td>' + hd.khachHangTen + '</td>' +
+        '<td>' + hd.ngayKy + '</td>' +
+        '<td class="text-right" style="font-weight: 600;">' + Number(hd.giaTri).toLocaleString('vi-VN') + 'đ</td>' +
+        '<td class="text-right">' + Number(hd.tienDatCoc).toLocaleString('vi-VN') + 'đ</td>' +
+        '<td><span class="badge ' + getContractStatusBadgeClass(hd.trangThai) + '">' + formatContractStatusText(hd.trangThai) + '</span></td>' +
+        '<td style="text-align: center;">' +
+          '<div class="flex-gap-8" style="justify-content: center;">' +
+            actionHtml +
+          '</div>' +
+        '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function formatContractStatusText(status) {
+    switch (status) {
+      case 'NHAP': return 'Bản Nháp';
+      case 'HIEU_LUC': return 'Hiệu Lực';
+      case 'DA_HUY': return 'Đã Hủy';
+      default: return status;
+    }
+  }
+
+  function getContractStatusBadgeClass(status) {
+    switch (status) {
+      case 'NHAP': return 'badge-blue';
+      case 'HIEU_LUC': return 'badge-green';
+      case 'DA_HUY': return 'badge-red';
+      default: return 'badge-grey';
+    }
+  }
+
+  function activateContract(maHopDong) {
+    showConfirm('Kích hoạt hiệu lực hợp đồng ' + maHopDong + '?', function() {
+      fetch('/api/sales/contracts/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maHopDong: maHopDong })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Lỗi kích hoạt hợp đồng');
+        return res.text();
+      })
+      .then(msg => {
+        alert(msg);
+        loadAllContracts();
+      })
+      .catch(err => alert(err.message));
+    });
+  }
+
+  function cancelContract(maHopDong) {
+    showConfirm('Hủy hợp đồng nháp ' + maHopDong + '?', function() {
+      fetch('/api/sales/contracts/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maHopDong: maHopDong })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Lỗi hủy hợp đồng');
+        return res.text();
+      })
+      .then(msg => {
+        alert(msg);
+        loadAllContracts();
+      })
+      .catch(err => alert(err.message));
+    });
+  }
+
+  function loadApprovedOrdersNoContract() {
+    const select = document.getElementById('contract-order-select');
+    fetch('/api/sales/orders/approved-no-contract')
+      .then(res => res.json())
+      .then(orders => {
+        globalApprovedOrders = orders;
+        select.innerHTML = '<option value="" disabled selected>Chọn đơn đặt hàng đã duyệt...</option>';
+        orders.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o.id;
+          opt.innerText = o.maDonHang + ' - ' + o.khachHangTen + ' (' + Number(o.tongTien).toLocaleString('vi-VN') + 'đ)';
+          select.appendChild(opt);
+        });
+      })
+      .catch(err => console.error(err));
+  }
+
+  function handleOrderSelect() {
+    const select = document.getElementById('contract-order-select');
+    const custInput = document.getElementById('contract-customer-name');
+    const depositInput = document.getElementById('contract-deposit');
+
+    if (select.selectedIndex <= 0) {
+      custInput.value = '';
+      depositInput.value = 0;
+      return;
+    }
+
+    const orderId = select.value;
+    const order = globalApprovedOrders.find(o => o.id == orderId);
+    if (order) {
+      custInput.value = order.khachHangTen;
+      // Auto-set deposit to 30% of order value
+      const defaultDeposit = Math.round(order.tongTien * 0.3);
+      depositInput.value = defaultDeposit;
+    }
+  }
+
+  function handleCreateContract(e) {
+    e.preventDefault();
+    const orderId = document.getElementById('contract-order-select').value;
+    const signDate = document.getElementById('contract-sign-date').value;
+    const startDate = document.getElementById('contract-start-date').value;
+    const discount = document.getElementById('contract-discount').value;
+    const deposit = document.getElementById('contract-deposit').value;
+    const terms = document.getElementById('contract-terms').value;
+    const salespersonUsername = localStorage.getItem('logged_in_username') || 'nvkd01';
+
+    fetch('/api/sales/contracts/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId: orderId,
+        ngayKy: signDate,
+        ngayHieuLuc: startDate,
+        chietKhau: discount,
+        tienDatCoc: deposit,
+        dieuKhoan: terms,
+        username: salespersonUsername
+      })
+    })
+    .then(res => {
+      if (!res.ok) return res.text().then(text => { throw new Error(text); });
+      return res.text();
+    })
+    .then(msg => {
+      alert(msg);
+      switchContractTab('list');
+    })
+    .catch(err => alert('Tạo hợp đồng thất bại: ' + err.message));
+  }
+
+  // Load contracts when page ready
+  document.addEventListener('DOMContentLoaded', function() {
+    loadAllContracts();
+  });
+</script>
+
+</body>
+</html>

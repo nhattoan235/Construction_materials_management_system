@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Báo cáo tổng hợp - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/custom-alert.js"></script>
+  <style>
+    .report-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .mini-card {
+      background-color: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 16px;
+      text-align: center;
+    }
+    @media print {
+      body * { visibility: hidden; }
+      #print-area, #print-area * { visibility: visible; }
+      #print-area { position: absolute; top: 0; left: 0; width: 100%; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+  
+  <div class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div>
+        <h4 style="font-weight: 700;">Trung Tâm Báo Cáo Tổng Hợp (Ban Quản Lý)</h4>
+        <p class="text-muted-desc">Tra cứu số liệu tài chính, thống kê tình hình tồn kho và hiệu suất kho vận giao hàng.</p>
+      </div>
+      <div class="flex-gap-8 no-print">
+        <button class="btn btn-secondary btn-sm" id="btn-export-csv" onclick="downloadCSV()">⬇ Tải CSV</button>
+        <button class="btn btn-primary btn-sm" id="btn-print-pdf" onclick="printReport()">🖨 In / Xuất PDF</button>
+      </div>
+    </div>
+
+    <!-- Date filter query -->
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="card-body" style="padding: 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+        <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Khoảng thời gian:</span>
+        <input type="date" class="form-control" style="width: 150px;" id="tu-ngay" value="2026-05-01">
+        <span>đến</span>
+        <input type="date" class="form-control" style="width: 150px;" id="den-ngay" value="2026-06-30">
+        <button class="btn btn-secondary" onclick="fetchReports()">Truy vấn</button>
+      </div>
+    </div>
+
+    <!-- Management Reports Tabs -->
+    <div class="tabs-container">
+      <button class="tab-btn active" onclick="switchMgmtReportTab('finance')" id="btn-finance-tab">Báo Cáo Tài Chính</button>
+      <button class="tab-btn" onclick="switchMgmtReportTab('inventory')" id="btn-inventory-tab">Báo Cáo Tồn Kho</button>
+      <button class="tab-btn" onclick="switchMgmtReportTab('statistics')" id="btn-statistics-tab">Thống Kê Hiệu Suất</button>
+    </div>
+
+    <!-- TAB 1: BÁO CÁO TÀI CHÍNH -->
+    <div id="finance-tab-content" class="tab-content active">
+      <div class="report-card-grid">
+        <div class="mini-card" style="border-top: 3px solid var(--kh-primary);">
+          <div style="font-size: 11px; color: var(--text-muted);">Tổng doanh thu</div>
+          <div style="font-size: 18px; font-weight: 700; color: var(--kh-dark); margin-top: 4px;" id="fin-revenue">0đ</div>
+        </div>
+        <div class="mini-card" style="border-top: 3px solid var(--kd-primary);">
+          <div style="font-size: 11px; color: var(--text-muted);">Tổng thực thu (Đã thu)</div>
+          <div style="font-size: 18px; font-weight: 700; color: var(--kd-dark); margin-top: 4px;" id="fin-collected">0đ</div>
+        </div>
+        <div class="mini-card" style="border-top: 3px solid #ef4444;">
+          <div style="font-size: 11px; color: var(--text-muted);">Tổng công nợ tích lũy</div>
+          <div style="font-size: 18px; font-weight: 700; color: #dc2626; margin-top: 4px;" id="fin-debt">0đ</div>
+        </div>
+        <div class="mini-card" style="border-top: 3px solid var(--kt-primary);">
+          <div style="font-size: 11px; color: var(--text-muted);">Dòng tiền thu chi thực tế</div>
+          <div style="font-size: 18px; font-weight: 700; color: var(--kt-dark); margin-top: 4px;" id="fin-cashflow">0đ</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Kết quả hoạt động kinh doanh & Bán hàng chi tiết</span>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Mã Đơn Hàng</th>
+                <th>Khách Hàng</th>
+                <th>Ngày Đặt</th>
+                <th>Vật Liệu Cung Cấp</th>
+                <th class="text-right">Trị Giá Đơn</th>
+                <th class="text-right">Đã Thu</th>
+                <th class="text-right">Công Nợ Còn</th>
+                <th>Trạng Thái</th>
+              </tr>
+            </thead>
+            <tbody id="finance-tbody">
+              <tr>
+                <td colspan="8" style="text-align: center; padding: 20px; color: var(--text-muted);">Vui lòng nhấn truy vấn để xem số liệu...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: BÁO CÁO TỒN KHO -->
+    <div id="inventory-tab-content" class="tab-content">
+      <div class="report-card-grid">
+        <div class="mini-card" style="border-top: 3px solid var(--kho-primary);">
+          <div style="font-size: 11px; color: var(--text-muted);">Tổng lượng hàng tồn quy đổi</div>
+          <div style="font-size: 18px; font-weight: 700; margin-top: 4px;" id="inv-total-qty">0 sản phẩm</div>
+        </div>
+        <div class="mini-card" style="border-top: 3px solid #2e7d32;">
+          <div style="font-size: 11px; color: var(--text-muted);">Lượng nhập kho trong kỳ</div>
+          <div style="font-size: 18px; font-weight: 700; color: #2e7d32; margin-top: 4px;" id="inv-total-in">0 đơn vị</div>
+        </div>
+        <div class="mini-card" style="border-top: 3px solid #c62828;">
+          <div style="font-size: 11px; color: var(--text-muted);">Lượng xuất kho trong kỳ</div>
+          <div style="font-size: 18px; font-weight: 700; color: #c62828; margin-top: 4px;" id="inv-total-out">0 đơn vị</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Báo cáo Nhập - Xuất - Tồn kho chi tiết</span>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Mã Hàng</th>
+                <th>Tên Mặt Hàng</th>
+                <th>Đơn Vị Tính</th>
+                <th class="text-right">Tồn Đầu Kỳ</th>
+                <th class="text-right">Nhập Trong Kỳ</th>
+                <th class="text-right">Xuất Trong Kỳ</th>
+                <th class="text-right">Tồn Cuối Kỳ (Thực Tế)</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-tbody">
+              <tr>
+                <td colspan="7" style="text-align: center; padding: 20px; color: var(--text-muted);">Đang tải dữ liệu tồn kho...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: THỐNG KÊ HIỆU SUẤT -->
+    <div id="statistics-tab-content" class="tab-content">
+      <div class="report-card-grid">
+        <div class="mini-card" style="border-top: 3px solid var(--kh-primary);">
+          <div style="font-size: 11px; color: var(--text-muted);">Tổng đơn đặt hàng</div>
+          <div style="font-size: 18px; font-weight: 700; margin-top: 4px;" id="stat-total-orders">0 đơn hàng</div>
+        </div>
+        <div class="mini-card" style="border-top: 3px solid var(--kd-primary);">
+          <div style="font-size: 11px; color: var(--text-muted);">Tỷ lệ giao hàng hoàn tất</div>
+          <div style="font-size: 18px; font-weight: 700; color: #2e7d32; margin-top: 4px;" id="stat-delivery-pct">100%</div>
+        </div>
+        <div class="mini-card" style="border-top: 3px solid #ef4444;">
+          <div style="font-size: 11px; color: var(--text-muted);">Yêu cầu đổi/trả hàng</div>
+          <div style="font-size: 18px; font-weight: 700; color: #dc2626; margin-top: 4px;" id="stat-total-returns">0 sự vụ</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Thống kê hoạt động dịch vụ đổi trả</span>
+        </div>
+        <div class="card-body" style="padding: 20px;" id="returns-summary-desc">
+          <p style="font-size: 14px; margin-bottom: 12px; color: var(--text-muted);">Đang tải dữ liệu dịch vụ đổi trả hàng...</p>
+        </div>
+      </div>
+    </div>
+
+    <div th:replace="~{bo_cuc/footer :: footer}"></div>
+
+    <!-- Print Area (hidden by default, shown only during print) -->
+    <div id="print-area" style="display:none; padding: 24px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="font-size: 20px; font-weight: 700; margin: 0;">Sài Gòn CMC - Báo Cáo Tổng Hợp</h2>
+        <p id="print-period" style="font-size: 13px; color: #555; margin: 4px 0 0;"></p>
+        <p style="font-size: 12px; color: #888;">Ngày in: <span id="print-date"></span></p>
+      </div>
+      <h4 style="font-size: 15px; font-weight: 700; border-bottom: 2px solid #222; padding-bottom: 6px; margin-bottom: 10px;">I. BÁO CÁO TÀI CHÍNH</h4>
+      <p style="font-size: 13px; margin-bottom: 6px;">Tổng doanh thu: <strong id="prt-revenue"></strong> | Đã thu: <strong id="prt-collected"></strong> | Công nợ còn: <strong id="prt-debt"></strong></p>
+      <table id="print-finance-table" style="width:100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;"></table>
+      <h4 style="font-size: 15px; font-weight: 700; border-bottom: 2px solid #222; padding-bottom: 6px; margin-bottom: 10px;">II. BÁO CÁO TỒN KHO</h4>
+      <p style="font-size: 13px; margin-bottom: 6px;">Tồn cuối kỳ: <strong id="prt-inv-qty"></strong> | Nhập: <strong id="prt-inv-in"></strong> | Xuất: <strong id="prt-inv-out"></strong></p>
+      <table id="print-inventory-table" style="width:100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;"></table>
+    </div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+  function switchMgmtReportTab(tab) {
+    document.getElementById('btn-finance-tab').classList.remove('active');
+    document.getElementById('btn-inventory-tab').classList.remove('active');
+    document.getElementById('btn-statistics-tab').classList.remove('active');
+    document.getElementById('finance-tab-content').classList.remove('active');
+    document.getElementById('inventory-tab-content').classList.remove('active');
+    document.getElementById('statistics-tab-content').classList.remove('active');
+    
+    if (tab === 'finance') {
+      document.getElementById('btn-finance-tab').classList.add('active');
+      document.getElementById('finance-tab-content').classList.add('active');
+    } else if (tab === 'inventory') {
+      document.getElementById('btn-inventory-tab').classList.add('active');
+      document.getElementById('inventory-tab-content').classList.add('active');
+    } else {
+      document.getElementById('btn-statistics-tab').classList.add('active');
+      document.getElementById('statistics-tab-content').classList.add('active');
+    }
+  }
+
+  function formatVND(val) {
+    if (!val && val !== 0) return '0đ';
+    return val.toLocaleString('vi-VN') + 'đ';
+  }
+
+  function getStatusBadgeClass(status) {
+    switch(status) {
+      case 'HOAN_THANH': return 'badge-green';
+      case 'DA_XAC_NHAN':
+      case 'DANG_GIAO': return 'badge-teal';
+      case 'CHO_XAC_NHAN': return 'badge-blue';
+      case 'DA_HUY':
+      case 'TU_CHOI': return 'badge-red';
+      default: return 'badge-secondary';
+    }
+  }
+
+  function getStatusName(status) {
+    switch(status) {
+      case 'HOAN_THANH': return 'Hoàn Thành';
+      case 'DA_XAC_NHAN': return 'Đã Xác Nhận';
+      case 'DANG_GIAO': return 'Đang Giao';
+      case 'CHO_XAC_NHAN': return 'Chờ Xác Nhận';
+      case 'DA_HUY': return 'Đã Hủy';
+      case 'TU_CHOI': return 'Từ Chối';
+      default: return status;
+    }
+  }
+
+  async function fetchReports() {
+    const tuNgay = document.getElementById('tu-ngay').value;
+    const denNgay = document.getElementById('den-ngay').value;
+
+    // 1. Fetch Finance
+    try {
+      const finRes = await fetch(`/api/accounting/reports/revenue?tuNgay=${tuNgay}&denNgay=${denNgay}`);
+      if (finRes.ok) {
+        const data = await finRes.json();
+        document.getElementById('fin-revenue').innerText = formatVND(data.tongDoanhThu);
+        document.getElementById('fin-collected').innerText = formatVND(data.tongDaThu);
+        document.getElementById('fin-debt').innerText = formatVND(data.tongConNo);
+
+        const tbody = document.getElementById('finance-tbody');
+        if (!data.rows || data.rows.length === 0) {
+          _lastFinanceRows = [];
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 20px;">Không có dữ liệu trong khoảng thời gian này</td></tr>`;
+        } else {
+          _lastFinanceRows = data.rows;
+          let html = '';
+          data.rows.forEach(row => {
+            html += `
+              <tr>
+                <td style="font-weight: 600;">${row.maDonHang}</td>
+                <td>${row.khachHangTen}</td>
+                <td>${row.ngayDat}</td>
+                <td style="max-width: 200px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${row.vatLieu}</td>
+                <td class="text-right" style="font-weight: 600;">${formatVND(row.tongTien)}</td>
+                <td class="text-right" style="color: #2e7d32; font-weight: 600;">${formatVND(row.daThu)}</td>
+                <td class="text-right" style="color: #c62828; font-weight: 600;">${formatVND(row.conNo)}</td>
+                <td><span class="badge ${getStatusBadgeClass(row.trangThai)}">${getStatusName(row.trangThai)}</span></td>
+              </tr>
+            `;
+          });
+          tbody.innerHTML = html;
+        }
+      }
+    } catch (e) {
+      console.error("Lỗi khi tải báo cáo tài chính:", e);
+    }
+
+    // 2. Fetch Cashflow
+    try {
+      const cashRes = await fetch(`/api/accounting/reports/cashflow?tuNgay=${tuNgay}&denNgay=${denNgay}`);
+      if (cashRes.ok) {
+        const data = await cashRes.json();
+        document.getElementById('fin-cashflow').innerText = formatVND(data.luuChuyen);
+      }
+    } catch (e) {
+      console.error("Lỗi khi tải dòng tiền:", e);
+    }
+
+    // 3. Fetch Inventory
+    try {
+      const invRes = await fetch('/api/management/inventory-report');
+      if (invRes.ok) {
+        const rows = await invRes.json();
+        const tbody = document.getElementById('inventory-tbody');
+        
+        let totalQty = 0;
+        let totalIn = 0;
+        let totalOut = 0;
+
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px;">Không có dữ liệu tồn kho</td></tr>`;
+        } else {
+          let html = '';
+          rows.forEach(row => {
+            totalQty += row.tonCuoiKy;
+            totalIn += row.nhapTrongKy;
+            totalOut += row.xuatTrongKy;
+
+            html += `
+              <tr>
+                <td style="font-weight: 600;">${row.maHang}</td>
+                <td style="font-weight: 600;">${row.tenHang}</td>
+                <td>${row.donViTinh}</td>
+                <td class="text-right">${row.tonDauKy}</td>
+                <td class="text-right" style="color: #2e7d32;">+${row.nhapTrongKy}</td>
+                <td class="text-right" style="color: #c62828;">-${row.xuatTrongKy}</td>
+                <td class="text-right" style="font-weight: 700;">${row.tonCuoiKy}</td>
+              </tr>
+            `;
+          });
+          tbody.innerHTML = html;
+        }
+
+        document.getElementById('inv-total-qty').innerText = `${totalQty} sản phẩm`;
+        document.getElementById('inv-total-in').innerText = `+${totalIn} đơn vị`;
+        document.getElementById('inv-total-out').innerText = `-${totalOut} đơn vị`;
+      }
+    } catch (e) {
+      console.error("Lỗi khi tải báo cáo tồn kho:", e);
+    }
+
+    // 4. Fetch Performance stats
+    try {
+      const ordersRes = await fetch('/api/management/orders');
+      const returnsRes = await fetch('/api/sales/returns');
+
+      if (ordersRes.ok && returnsRes.ok) {
+        const orders = await ordersRes.json();
+        const returns = await returnsRes.json();
+
+        const totalOrders = orders.length;
+        const totalReturns = returns.length;
+
+        // Calculate delivery completed percentage
+        const completedCount = orders.filter(o => o.trangThai === 'HOAN_THANH').length;
+        const activeCount = orders.filter(o => o.trangThai !== 'DA_HUY' && o.trangThai !== 'TU_CHOI').length;
+        let deliveryPct = 100;
+        if (activeCount > 0) {
+          deliveryPct = Math.round((completedCount / activeCount) * 100);
+        }
+
+        document.getElementById('stat-total-orders').innerText = `${totalOrders} đơn hàng`;
+        document.getElementById('stat-delivery-pct').innerText = `${deliveryPct}%`;
+        document.getElementById('stat-total-returns').innerText = `${totalReturns} sự vụ`;
+
+        // Render returns details in Tab 3
+        const returnsDesc = document.getElementById('returns-summary-desc');
+        if (totalReturns === 0) {
+          returnsDesc.innerHTML = `<p style="font-size: 14px; color: var(--text-muted);">Chưa ghi nhận sự vụ khiếu nại hay yêu cầu đổi/trả hàng nào trên hệ thống.</p>`;
+        } else {
+          let listHtml = `<p style="font-size: 14px; margin-bottom: 12px; font-weight: 600;">Hệ thống ghi nhận ${totalReturns} khiếu nại / yêu cầu đổi trả:</p>`;
+          listHtml += `<ul style="padding-left: 20px; font-size: 13px; line-height: 1.6;">`;
+          returns.forEach(ret => {
+            const loai = ret.loai === 'DOI' ? 'Đổi hàng' : 'Trả hàng';
+            listHtml += `<li><strong>${ret.maDoiTra}</strong>: Yêu cầu ${loai.toLowerCase()} (${ret.tenHang} - ${ret.soLuong} đơn vị). Trạng thái: <span class="badge ${getStatusBadgeClass(ret.trangThai)}">${getStatusName(ret.trangThai)}</span></li>`;
+          });
+          listHtml += `</ul>`;
+          returnsDesc.innerHTML = listHtml;
+        }
+      }
+    } catch (e) {
+      console.error("Lỗi khi tải thống kê hiệu suất:", e);
+    }
+  }
+
+  // ====================================================
+  // EXPORT & PRINT FUNCTIONS
+  // ====================================================
+
+  // Store last fetched data for export
+  let _lastFinanceRows = [];
+  let _lastInventoryRows = [];
+
+  function downloadCSV() {
+    if (_lastFinanceRows.length === 0) {
+      alert('Vui lòng nhấn "Truy vấn" trước để tải dữ liệu!');
+      return;
+    }
+    const tuNgay = document.getElementById('tu-ngay').value;
+    const denNgay = document.getElementById('den-ngay').value;
+    const header = ['Mã Đơn Hàng','Khách Hàng','Ngày Đặt','Vật Liệu','Trị Giá Đơn','Đã Thu','Công Nợ Còn','Trạng Thái'];
+    const rows = _lastFinanceRows.map(r => [
+      r.maDonHang, r.khachHangTen, r.ngayDat, '"' + r.vatLieu + '"',
+      r.tongTien, r.daThu, r.conNo, r.trangThai
+    ]);
+    const csvContent = [header, ...rows].map(e => e.join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `BaoCaoTaiChinh_${tuNgay}_${denNgay}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printReport() {
+    const tuNgay = document.getElementById('tu-ngay').value;
+    const denNgay = document.getElementById('den-ngay').value;
+
+    // Populate print-area
+    document.getElementById('print-period').textContent = `Kỳ báo cáo: ${tuNgay} đến ${denNgay}`;
+    document.getElementById('print-date').textContent = new Date().toLocaleDateString('vi-VN');
+    document.getElementById('prt-revenue').textContent = document.getElementById('fin-revenue').textContent;
+    document.getElementById('prt-collected').textContent = document.getElementById('fin-collected').textContent;
+    document.getElementById('prt-debt').textContent = document.getElementById('fin-debt').textContent;
+    document.getElementById('prt-inv-qty').textContent = document.getElementById('inv-total-qty').textContent;
+    document.getElementById('prt-inv-in').textContent = document.getElementById('inv-total-in').textContent;
+    document.getElementById('prt-inv-out').textContent = document.getElementById('inv-total-out').textContent;
+
+    // Finance table
+    const finTbody = document.getElementById('finance-tbody').innerHTML;
+    document.getElementById('print-finance-table').innerHTML =
+      `<thead style="background:#f0f4f8;"><tr>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Mã Đơn</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Khách Hàng</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Ngày Đặt</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Vật Liệu</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Trị Giá</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Đã Thu</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Còn Nợ</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">T.Thái</th>
+      </tr></thead><tbody>${finTbody}</tbody>`;
+
+    // Inventory table
+    const invTbody = document.getElementById('inventory-tbody').innerHTML;
+    document.getElementById('print-inventory-table').innerHTML =
+      `<thead style="background:#f0f4f8;"><tr>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Mã Hàng</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Tên Mặt Hàng</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">ĐVT</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Tồn Đầu</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Nhập</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Xuất</th>
+        <th style="border:1px solid #ccc;padding:4px 6px;">Tồn Cuối</th>
+      </tr></thead><tbody>${invTbody}</tbody>`;
+
+    document.getElementById('print-area').style.display = 'block';
+    window.print();
+    document.getElementById('print-area').style.display = 'none';
+  }
+
+  // Patch fetchReports to also cache data for export
+  const _origFetchReports = fetchReports;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Set default dates to month start/end
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+    document.getElementById('tu-ngay').value = firstDay;
+    document.getElementById('den-ngay').value = lastDay;
+
+    fetchReports();
+  });
+</script>
+
+</body>
+</html>

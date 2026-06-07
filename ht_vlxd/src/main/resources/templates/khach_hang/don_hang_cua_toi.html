@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đơn hàng của tôi - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/custom-alert.js"></script>
+  <style>
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background-color: var(--bg-card);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+      animation: modalSlide 0.3s ease;
+    }
+    @keyframes modalSlide {
+      from { transform: translateY(-30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      background-color: var(--kh-light);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+  
+  <div class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div>
+        <h4 style="font-weight: 700;">Đơn Hàng Của Tôi</h4>
+        <p class="text-muted-desc">Quản lý các đơn đặt hàng vật liệu xây dựng và yêu cầu đổi trả.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openOrderModal()">+ Đặt Hàng Mới</button>
+    </div>
+
+    <!-- Dynamic Stats Cards -->
+    <div class="dashboard-grid">
+      <div class="stat-card">
+        <div class="stat-card-title">Tổng số đơn hàng</div>
+        <div class="stat-card-value" id="stat-total-orders" style="color: var(--kh-dark);">0</div>
+        <div class="stat-card-desc">Tất cả các thời điểm</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-title">Đơn hàng đang giao</div>
+        <div class="stat-card-value" id="stat-delivering-orders" style="color: var(--kho-dark);">0</div>
+        <div class="stat-card-desc">Đơn vị vận chuyển đang xử lý</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-title">Tổng chi tiêu</div>
+        <div class="stat-card-value" id="stat-total-expense" style="color: var(--kd-dark);">0đ</div>
+        <div class="stat-card-desc" id="stat-deposit-desc">Đã cọc: 0đ</div>
+      </div>
+    </div>
+
+    <!-- Tabs for Switching Tables -->
+    <div class="tabs-container" style="margin-bottom: 20px;">
+      <button class="tab-btn active" id="tab-orders-btn" onclick="switchOrdersTab('orders')">Đơn Hàng Của Tôi</button>
+      <button class="tab-btn" id="tab-returns-btn" onclick="switchOrdersTab('returns')">Lịch sử Đổi/Trả hàng</button>
+    </div>
+
+    <!-- Tab 1: Orders -->
+    <div id="tab-orders-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Lịch sử giao dịch & Đơn hàng</span>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Mã Đơn Hàng</th>
+                  <th>Ngày Đặt</th>
+                  <th>Địa Chỉ Giao Hàng</th>
+                  <th class="text-right">Tổng Tiền</th>
+                  <th class="text-right">Đã Đặt Cọc</th>
+                  <th>Trạng Thái</th>
+                  <th style="text-align: center;">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTableBody">
+                <tr>
+                  <td colspan="7" style="text-align: center; color: var(--text-muted);">Đang tải danh sách đơn hàng...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Returns -->
+    <div id="tab-returns-content" style="display: none;">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Yêu cầu Đổi / Trả vật tư lỗi</span>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Mã Đổi/Trả</th>
+                  <th>Mã Đơn</th>
+                  <th>Sản Phẩm</th>
+                  <th>Loại</th>
+                  <th class="text-right">Số Lượng</th>
+                  <th>Ngày Yêu Cầu</th>
+                  <th>Trạng Trạng Thái</th>
+                  <th>Lý Do / Ghi Chú</th>
+                </tr>
+              </thead>
+              <tbody id="returnsTableBody">
+                <tr>
+                  <td colspan="8" style="text-align: center; color: var(--text-muted);">Đang tải danh sách đổi trả...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 1: ĐẶT HÀNG MỚI -->
+    <div class="modal" id="orderModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span style="font-weight: 700; color: var(--kh-dark);">Đặt Đơn Hàng Mới</span>
+          <button onclick="closeOrderModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+        <form onsubmit="handlePlaceOrder(event)">
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">Chọn sản phẩm vật liệu</label>
+              <select class="form-control" id="order-product" onchange="updateProductPrice()" required>
+                <option value="" disabled selected>Đang tải danh sách sản phẩm...</option>
+              </select>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Số lượng đặt</label>
+                <input type="number" id="order-qty" class="form-control" min="1" value="10" oninput="calculateTotal()" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Đơn vị tính / Quy cách</label>
+                <input type="text" id="order-unit-spec" class="form-control" style="background-color: #f1f5f9;" readonly>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Địa chỉ công trình nhận hàng</label>
+              <input type="text" id="order-address" class="form-control" value="42A Cống Lỡ, P. 15, Q. Tân Bình" required>
+            </div>
+
+            <div style="background-color: var(--kh-light); padding: 16px; border-radius: 12px; border: 1px solid var(--kh-border); margin-bottom: 16px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px;">
+                <span>Tổng giá trị đơn hàng:</span>
+                <strong style="color: var(--kh-dark); font-size: 16px;" id="order-total-lbl">0đ</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted);">
+                <span>Tiền đặt cọc tối thiểu (30%):</span>
+                <span id="order-deposit-lbl">0đ</span>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+              <button type="button" class="btn btn-secondary" onclick="closeOrderModal()">Hủy bỏ</button>
+              <button type="submit" class="btn btn-primary">Xác nhận đặt hàng</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL 2: YÊU CẦU ĐỔI TRẢ HÀNG -->
+    <div class="modal" id="returnModal">
+      <div class="modal-content">
+        <div class="modal-header" style="background-color: var(--kt-light);">
+          <span style="font-weight: 700; color: var(--kt-dark);" id="returnModalHeader">Yêu cầu Đổi trả hàng lỗi - Đơn hàng</span>
+          <button onclick="closeReturnModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+        <form onsubmit="handleReturnOrder(event)">
+          <input type="hidden" id="return-order-id">
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">Hình thức đổi trả</label>
+              <div style="display: flex; gap: 16px;">
+                <label style="display: flex; gap: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                  <input type="radio" name="returnType" value="DOI" checked> Đổi hàng mới (cùng loại)
+                </label>
+                <label style="display: flex; gap: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                  <input type="radio" name="returnType" value="TRA"> Trả hàng (giảm trừ công nợ)
+                </label>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Sản phẩm bị lỗi</label>
+                <select class="form-control" id="return-product" required>
+                  <option value="" disabled selected>Chọn sản phẩm lỗi...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Số lượng lỗi</label>
+                <input type="number" id="return-qty" class="form-control" min="1" value="1" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Lý do đổi trả (mô tả chi tiết lỗi)</label>
+              <textarea id="return-reason" class="form-control" rows="3" placeholder="Ví dụ: Thép bị rỉ sét nghiêm trọng, xi măng bị vón cục do ẩm ướt..." required></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px;">
+              <button type="button" class="btn btn-secondary" onclick="closeReturnModal()">Hủy</button>
+              <button type="submit" class="btn btn-warning">Gửi yêu cầu đổi trả</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div th:replace="~{bo_cuc/footer :: footer}"></div>
+  </div>
+</div>
+
+<script>
+  let globalProductsList = [];
+  let globalOrdersList = [];
+
+  function openOrderModal(preselectedProductId) {
+    const role = localStorage.getItem('demo_role') || 'KHACH_HANG';
+    if (role !== 'KHACH_HANG') {
+      alert('Chức năng đặt hàng chỉ dành cho vai trò Khách Hàng.');
+      return;
+    }
+    document.getElementById('orderModal').style.display = 'flex';
+    const select = document.getElementById('order-product');
+    if (preselectedProductId) {
+      select.value = preselectedProductId;
+    }
+    updateProductPrice();
+  }
+
+  function closeOrderModal() {
+    document.getElementById('orderModal').style.display = 'none';
+  }
+
+  function updateProductPrice() {
+    const select = document.getElementById('order-product');
+    const unitSpec = document.getElementById('order-unit-spec');
+    if (select.selectedIndex <= 0) {
+      unitSpec.value = '';
+      return;
+    }
+    const option = select.options[select.selectedIndex];
+    const unit = option.getAttribute('data-unit');
+    const spec = option.getAttribute('data-spec');
+    unitSpec.value = unit + ' (' + spec + ')';
+    calculateTotal();
+  }
+
+  function calculateTotal() {
+    const select = document.getElementById('order-product');
+    const qty = parseInt(document.getElementById('order-qty').value) || 0;
+    const totalLbl = document.getElementById('order-total-lbl');
+    const depositLbl = document.getElementById('order-deposit-lbl');
+    
+    if (select.selectedIndex <= 0) return;
+    const option = select.options[select.selectedIndex];
+    const price = parseInt(option.getAttribute('data-price'));
+    const total = price * qty;
+    const deposit = Math.round(total * 0.3);
+    
+    totalLbl.innerText = total.toLocaleString('vi-VN') + 'đ';
+    depositLbl.innerText = deposit.toLocaleString('vi-VN') + 'đ';
+  }
+
+  function handlePlaceOrder(e) {
+    e.preventDefault();
+    const username = localStorage.getItem('logged_in_username');
+    if (!username) {
+      alert('Vui lòng đăng nhập tài khoản khách hàng để thực hiện đặt hàng.');
+      return;
+    }
+
+    const productId = document.getElementById('order-product').value;
+    const qty = document.getElementById('order-qty').value;
+    const address = document.getElementById('order-address').value;
+
+    fetch('/api/khach_hang/orders/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: username,
+        productId: productId,
+        soLuong: qty,
+        diaChiGiao: address,
+        ghiChu: 'Khách tự đặt hàng trực tuyến.'
+      })
+    })
+    .then(res => {
+      if (res.ok) {
+        return res.text();
+      } else {
+        return res.text().then(text => { throw new Error(text); });
+      }
+    })
+    .then(msg => {
+      alert(msg);
+      closeOrderModal();
+      loadCustomerOrders(username);
+    })
+    .catch(err => alert(err.message));
+  }
+
+  function openReturnModal(maDonHang) {
+    document.getElementById('return-order-id').value = maDonHang;
+    document.getElementById('returnModalHeader').innerText = 'Yêu cầu Đổi trả hàng lỗi - Đơn ' + maDonHang;
+    
+    const order = globalOrdersList.find(o => o.maDonHang === maDonHang);
+    const select = document.getElementById('return-product');
+    select.innerHTML = '';
+
+    if (order && order.chiTiet && order.chiTiet.length > 0) {
+      order.chiTiet.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.maHang;
+        opt.innerText = item.tenHang + ' (' + item.maHang + ')';
+        select.appendChild(opt);
+      });
+    } else {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.innerText = 'Không có sản phẩm';
+      select.appendChild(opt);
+    }
+
+    document.getElementById('returnModal').style.display = 'flex';
+  }
+
+  function closeReturnModal() {
+    document.getElementById('returnModal').style.display = 'none';
+  }
+
+  function handleReturnOrder(e) {
+    e.preventDefault();
+    const maDonHang = document.getElementById('return-order-id').value;
+    const maHang = document.getElementById('return-product').value;
+    const qty = document.getElementById('return-qty').value;
+    const lyDo = document.getElementById('return-reason').value;
+    const loai = document.querySelector('input[name="returnType"]:checked').value;
+
+    fetch('/api/khach_hang/orders/return', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        maDonHang: maDonHang,
+        maHang: maHang,
+        soLuong: qty,
+        lyDo: lyDo,
+        loai: loai
+      })
+    })
+    .then(res => {
+      if (res.ok) {
+        return res.text();
+      } else {
+        return res.text().then(text => { throw new Error(text); });
+      }
+    })
+    .then(msg => {
+      alert(msg);
+      closeReturnModal();
+      document.getElementById('return-reason').value = '';
+      switchOrdersTab('returns');
+    })
+    .catch(err => alert(err.message));
+  }
+
+  function switchOrdersTab(tab) {
+    const ordersBtn = document.getElementById('tab-orders-btn');
+    const returnsBtn = document.getElementById('tab-returns-btn');
+    const ordersContent = document.getElementById('tab-orders-content');
+    const returnsContent = document.getElementById('tab-returns-content');
+
+    ordersBtn.classList.remove('active');
+    returnsBtn.classList.remove('active');
+    ordersContent.style.display = 'none';
+    returnsContent.style.display = 'none';
+
+    if (tab === 'orders') {
+      ordersBtn.classList.add('active');
+      ordersContent.style.display = 'block';
+      const username = localStorage.getItem('logged_in_username');
+      if (username) {
+        loadCustomerOrders(username);
+      }
+    } else {
+      returnsBtn.classList.add('active');
+      returnsContent.style.display = 'block';
+      const username = localStorage.getItem('logged_in_username');
+      if (username) {
+        loadCustomerReturns(username);
+      }
+    }
+  }
+
+  function loadCustomerReturns(username) {
+    const tbody = document.getElementById('returnsTableBody');
+    fetch('/api/khach_hang/returns?username=' + encodeURIComponent(username))
+      .then(res => res.json())
+      .then(returns => {
+        tbody.innerHTML = '';
+        if (returns.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 20px 0;">Không có yêu cầu đổi trả nào.</td></tr>';
+          return;
+        }
+
+        returns.forEach(r => {
+          const tr = document.createElement('tr');
+          const loaiText = r.loai === 'DOI' ? 'Đổi hàng' : 'Trả hàng';
+          const loaiClass = r.loai === 'DOI' ? 'badge-blue' : 'badge-purple';
+          
+          let responseText = '<div style="max-width: 250px; word-wrap: break-word;"><strong>Lý do:</strong> ' + r.lyDo;
+          if (r.ghiChuXuLy) {
+            responseText += '<br><strong style="color: var(--text-main);">Phản hồi:</strong> ' + r.ghiChuXuLy;
+          }
+          if (r.ngayXuLy) {
+            responseText += '<br><small class="text-muted">Ngày duyệt: ' + r.ngayXuLy + '</small>';
+          }
+          responseText += '</div>';
+
+          tr.innerHTML = 
+            '<td style="font-weight: 600;">' + r.maDoiTra + '</td>' +
+            '<td>' + r.maDonHang + '</td>' +
+            '<td>' + r.tenHang + ' <br><small class="text-muted">(' + r.maHang + ')</small></td>' +
+            '<td><span class="badge ' + loaiClass + '">' + loaiText + '</span></td>' +
+            '<td class="text-right" style="font-weight: 600;">' + Number(r.soLuong).toLocaleString('vi-VN') + '</td>' +
+            '<td>' + r.ngayYeuCau + '</td>' +
+            '<td><span class="badge ' + getReturnStatusBadgeClass(r.trangThai) + '">' + formatReturnStatusText(r.trangThai) + '</span></td>' +
+            '<td>' + responseText + '</td>';
+          
+          tbody.appendChild(tr);
+        });
+      })
+      .catch(err => {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #ef4444; padding: 20px 0;">Lỗi tải dữ liệu đổi trả.</td></tr>';
+        console.error(err);
+      });
+  }
+
+  function formatReturnStatusText(status) {
+    switch (status) {
+      case 'CHO_DUYET': return 'Chờ Duyệt';
+      case 'DA_DUYET': return 'Đã Duyệt';
+      case 'TU_CHOI': return 'Từ Chối';
+      case 'HOAN_THANH': return 'Hoàn Thành';
+      default: return status;
+    }
+  }
+
+  function getReturnStatusBadgeClass(status) {
+    switch (status) {
+      case 'CHO_DUYET': return 'badge-blue';
+      case 'DA_DUYET': return 'badge-purple';
+      case 'TU_CHOI': return 'badge-red';
+      case 'HOAN_THANH': return 'badge-green';
+      default: return 'badge-grey';
+    }
+  }
+
+  function cancelOrder(maDonHang) {
+    showConfirm('Bạn có chắc chắn muốn hủy đơn hàng ' + maDonHang + ' không?', function() {
+      fetch('/api/khach_hang/orders/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maDonHang: maDonHang })
+      })
+      .then(res => {
+        if (res.ok) {
+          return res.text();
+        } else {
+          return res.text().then(text => { throw new Error(text); });
+        }
+      })
+      .then(msg => {
+        alert(msg);
+        const username = localStorage.getItem('logged_in_username');
+        loadCustomerOrders(username);
+      })
+      .catch(err => alert(err.message));
+    });
+  }
+
+  function viewOrderDetails(maDonHang) {
+    const order = globalOrdersList.find(o => o.maDonHang === maDonHang);
+    if (!order) return;
+
+    let text = 'Chi tiết đơn hàng ' + maDonHang + ':\n';
+    text += '- Ngày đặt: ' + order.ngayDat + '\n';
+    text += '- Địa chỉ giao: ' + order.diaChiGiao + '\n';
+    text += '- Tổng tiền: ' + Number(order.tongTien).toLocaleString('vi-VN') + ' đ\n';
+    text += '- Tiền cọc (30%): ' + Number(order.tienDatCoc).toLocaleString('vi-VN') + ' đ\n';
+    text += '- Trạng thái: ' + formatStatusText(order.trangThai) + '\n\n';
+    text += 'Mặt hàng đặt mua:\n';
+
+    if (order.chiTiet) {
+      order.chiTiet.forEach(item => {
+        text += '• ' + item.tenHang + ' (' + item.maHang + ') - ' + item.soLuong + ' x ' + Number(item.donGia).toLocaleString('vi-VN') + ' đ = ' + Number(item.thanhTien).toLocaleString('vi-VN') + ' đ\n';
+      });
+    }
+
+    alert(text);
+  }
+
+  function formatStatusText(status) {
+    switch (status) {
+      case 'CHO_XAC_NHAN': return 'Chờ Xác Nhận';
+      case 'DA_XAC_NHAN': return 'Đã Xác Nhận';
+      case 'DANG_GIAO': return 'Đang Giao';
+      case 'HOAN_THANH': return 'Hoàn Thành';
+      case 'DA_HUY': return 'Đã Hủy';
+      default: return status;
+    }
+  }
+
+  function getStatusBadgeClass(status) {
+    switch (status) {
+      case 'CHO_XAC_NHAN': return 'badge-blue';
+      case 'DA_XAC_NHAN': return 'badge-purple';
+      case 'DANG_GIAO': return 'badge-teal';
+      case 'HOAN_THANH': return 'badge-green';
+      case 'DA_HUY': return 'badge-red';
+      default: return 'badge-grey';
+    }
+  }
+
+  function loadProductsList() {
+    const select = document.getElementById('order-product');
+    fetch('/api/khach_hang/products')
+      .then(res => res.json())
+      .then(products => {
+        globalProductsList = products;
+        select.innerHTML = '<option value="" disabled selected>Chọn loại vật liệu...</option>';
+        products.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.setAttribute('data-price', p.giaBanLe);
+          opt.setAttribute('data-unit', p.donViTinh);
+          opt.setAttribute('data-spec', p.quyCach);
+          opt.innerText = p.tenHang + ' - ' + Number(p.giaBanLe).toLocaleString('vi-VN') + 'đ / ' + p.donViTinh;
+          select.appendChild(opt);
+        });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const buyProductId = urlParams.get('buy_product_id');
+        const role = localStorage.getItem('demo_role') || 'KHACH_HANG';
+        if (buyProductId && role === 'KHACH_HANG') {
+          openOrderModal(buyProductId);
+        }
+      })
+      .catch(err => {
+        select.innerHTML = '<option value="" disabled>Lỗi tải sản phẩm</option>';
+        console.error(err);
+      });
+  }
+
+  function loadCustomerOrders(username) {
+    const tbody = document.getElementById('ordersTableBody');
+    fetch('/api/khach_hang/orders?username=' + encodeURIComponent(username))
+      .then(res => res.json())
+      .then(orders => {
+        globalOrdersList = orders;
+        tbody.innerHTML = '';
+
+        if (orders.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Bạn chưa có đơn đặt hàng nào.</td></tr>';
+          updateStats(orders);
+          return;
+        }
+
+        orders.forEach(dh => {
+          const tr = document.createElement('tr');
+          
+          let actionHtml = '<button class="btn btn-secondary btn-sm" onclick="viewOrderDetails(\'' + dh.maDonHang + '\')">Chi tiết</button>';
+          if (dh.trangThai === 'CHO_XAC_NHAN') {
+            actionHtml += ' <button class="btn btn-danger btn-sm" onclick="cancelOrder(\'' + dh.maDonHang + '\')">Hủy</button>';
+          } else if (dh.trangThai === 'HOAN_THANH') {
+            actionHtml += ' <button class="btn btn-warning btn-sm" onclick="openReturnModal(\'' + dh.maDonHang + '\')">Đổi trả</button>';
+          }
+
+          tr.innerHTML = 
+            '<td style="font-weight: 600;">' + dh.maDonHang + '</td>' +
+            '<td>' + dh.ngayDat + '</td>' +
+            '<td>' + dh.diaChiGiao + '</td>' +
+            '<td class="text-right" style="font-weight: 600;">' + Number(dh.tongTien).toLocaleString('vi-VN') + 'đ</td>' +
+            '<td class="text-right">' + Number(dh.tienDatCoc).toLocaleString('vi-VN') + 'đ</td>' +
+            '<td><span class="badge ' + getStatusBadgeClass(dh.trangThai) + '">' + formatStatusText(dh.trangThai) + '</span></td>' +
+            '<td style="text-align: center;">' +
+              '<div class="flex-gap-8" style="justify-content: center;">' +
+                actionHtml +
+              '</div>' +
+            '</td>';
+
+          tbody.appendChild(tr);
+        });
+
+        updateStats(orders);
+      })
+      .catch(err => {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #ef4444;">Lỗi tải dữ liệu đơn hàng.</td></tr>';
+        console.error(err);
+      });
+  }
+
+  function updateStats(orders) {
+    const totalOrders = orders.length;
+    const deliveringOrders = orders.filter(o => o.trangThai === 'DANG_GIAO').length;
+    
+    // Sum active/completed expenses, ignore canceled orders
+    let totalExpense = 0;
+    let totalDeposit = 0;
+    orders.forEach(o => {
+      if (o.trangThai !== 'DA_HUY') {
+        totalExpense += o.tongTien;
+        totalDeposit += o.tienDatCoc;
+      }
+    });
+
+    document.getElementById('stat-total-orders').innerText = totalOrders;
+    document.getElementById('stat-delivering-orders').innerText = deliveringOrders;
+    document.getElementById('stat-total-expense').innerText = totalExpense.toLocaleString('vi-VN') + 'đ';
+    document.getElementById('stat-deposit-desc').innerText = 'Đã cọc: ' + totalDeposit.toLocaleString('vi-VN') + 'đ';
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const role = localStorage.getItem('demo_role') || 'KHACH_HANG';
+    const username = localStorage.getItem('logged_in_username');
+    
+    if (role !== 'KHACH_HANG') {
+      const tbody = document.getElementById('ordersTableBody');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 40px 0;">' +
+        '<div style="font-weight: 600; margin-bottom: 8px;">Trang web này chỉ dành cho vai trò Khách Hàng.</div>' +
+        '<div class="text-muted" style="font-size: 13px;">Vui lòng chuyển vai trò thành Khách Hàng ở góc trên bên phải hoặc đăng nhập bằng tài khoản khách hàng.</div>' +
+        '</td></tr>';
+      return;
+    }
+
+    loadProductsList();
+
+    if (username) {
+      // Load user details to populate default address
+      fetch('/api/khach_hang/profile?username=' + encodeURIComponent(username))
+        .then(res => res.json())
+        .then(data => {
+          if (data.diaChi) {
+            document.getElementById('order-address').value = data.diaChi;
+          }
+        })
+        .catch(err => console.error(err));
+
+      loadCustomerOrders(username);
+    } else {
+      const tbody = document.getElementById('ordersTableBody');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 40px 0;">' +
+        '<div style="font-weight: 600; margin-bottom: 8px;">Chưa đăng nhập tài khoản Khách Hàng.</div>' +
+        '<a href="/login" class="btn btn-primary btn-sm mt-10">Đăng nhập ngay</a>' +
+        '</td></tr>';
+    }
+  });
+</script>
+
+</body>
+</html>

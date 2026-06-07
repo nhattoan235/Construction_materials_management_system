@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Giao nhận & Bàn giao - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0,0,0,0.45);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal.show { display: flex; }
+    .modal-content {
+      background-color: var(--bg-card);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 620px;
+      max-height: 92vh;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      animation: modalSlide 0.25s ease;
+    }
+    .delivery-card {
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+      background: var(--bg-card);
+      transition: box-shadow 0.2s;
+    }
+    .delivery-card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+    .delivery-card.done {
+      opacity: 0.65;
+      background: #f8fafc;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .info-item { font-size: 12px; }
+    .info-label { color: var(--text-muted); display: block; margin-bottom: 2px; }
+    .info-value { font-weight: 600; color: var(--text-main); }
+    .issue-box {
+      background: #fff5f5;
+      border: 1px solid #ffcdd2;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+
+  <div class="main-content">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+      <div>
+        <h4 style="font-weight:700;">Giao Nhận & Bàn Giao Hàng Hóa</h4>
+        <p class="text-muted-desc">Theo dõi lộ trình giao hàng đang thực hiện và xác nhận bàn giao tại công trình.</p>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="loadDeliveries()">🔄 Làm mới</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="dashboard-grid" style="margin-bottom:24px;">
+      <div class="stat-card" style="border-left:4px solid #f59e0b;">
+        <div class="stat-card-title">Đang trên đường giao</div>
+        <div class="stat-card-value" style="color:#d97706;" id="kpi-ongoing">—</div>
+        <div class="stat-card-desc">Lộ trình đang di chuyển</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid #10b981;">
+        <div class="stat-card-title">Đã bàn giao thành công</div>
+        <div class="stat-card-value" style="color:#059669;" id="kpi-done">—</div>
+        <div class="stat-card-desc">Khách đã ký nhận hàng</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid #ef4444;">
+        <div class="stat-card-title">Giao thất bại / Sự cố</div>
+        <div class="stat-card-value" style="color:#dc2626;" id="kpi-fail">—</div>
+        <div class="stat-card-desc">Cần xử lý khiếu nại</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-container">
+      <button class="tab-btn active" onclick="switchTab('ongoing')" id="btn-ongoing-tab">🚚 Đang Giao Hàng</button>
+      <button class="tab-btn" onclick="switchTab('history')" id="btn-history-tab">📋 Lịch Sử Bàn Giao</button>
+    </div>
+
+    <!-- TAB 1: ĐANG GIAO -->
+    <div id="ongoing-tab-content" class="tab-content active">
+      <div id="ongoing-container">
+        <div style="text-align:center;padding:40px;color:var(--text-muted);">Đang tải dữ liệu lộ trình...</div>
+      </div>
+    </div>
+
+    <!-- TAB 2: LỊCH SỬ -->
+    <div id="history-tab-content" class="tab-content">
+      <div class="card">
+        <div class="card-body" style="padding:0;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Mã Giao Nhận</th>
+                <th>Đơn Hàng</th>
+                <th>Người Nhận</th>
+                <th>SĐT Nhận</th>
+                <th>Địa Chỉ</th>
+                <th>Ngày Bàn Giao</th>
+                <th>Kết Quả</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Đang tải...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL BÀN GIAO -->
+    <div class="modal" id="handoverModal">
+      <div class="modal-content">
+        <div class="modal-header" style="background:var(--kh-light);">
+          <span style="font-weight:700;color:var(--kh-dark);" id="handoverModalTitle">✍️ Xác Nhận Bàn Giao</span>
+          <button onclick="closeHandoverModal()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
+        </div>
+        <form onsubmit="handleHandover(event)">
+          <div class="card-body">
+            <input type="hidden" id="hv-ma-giao-nhan">
+
+            <!-- Summary box -->
+            <div id="hv-summary" style="background:#f8fafc;border:1px solid var(--border-color);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;"></div>
+
+            <div class="form-group">
+              <label class="form-label">Tình trạng bàn giao <span style="color:#ef4444;">*</span></label>
+              <select class="form-control" id="hv-tinh-trang" onchange="toggleIssueBox()" required>
+                <option value="OK">✅ Đạt yêu cầu - Đủ số lượng & đúng quy cách</option>
+                <option value="LOI">❌ Phát sinh lỗi - Thiếu hàng, hàng bị hỏng</option>
+              </select>
+            </div>
+
+            <!-- Issue box (shows if LOI) -->
+            <div class="issue-box" id="issue-box">
+              <p style="font-size:13px;font-weight:700;color:#c62828;margin-bottom:10px;">
+                ⚠️ Khai báo sự cố (Sẽ tạo biên bản & thông báo phòng Kinh Doanh xử lý):
+              </p>
+              <div class="form-group">
+                <label class="form-label">Mô tả chi tiết sự cố</label>
+                <textarea class="form-control" id="hv-mo-ta-loi" rows="3"
+                  placeholder="Ví dụ: Móp méo 2 cây thép hộp do bốc xếp, thiếu 5 bao xi măng..."></textarea>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Ghi chú thêm (tuỳ chọn)</label>
+              <textarea class="form-control" id="hv-ghi-chu" rows="2"
+                placeholder="Ghi chú về giờ giao, người ký biên bản thay, điều kiện hiện trường..."></textarea>
+            </div>
+
+            <div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:8px;padding:10px 14px;font-size:12px;color:#2e7d32;margin-bottom:16px;" id="hv-ok-notice">
+              🎉 <strong>Bàn giao thành công</strong> sẽ chuyển đơn hàng sang <strong>"Hoàn Thành"</strong>. Kế toán sẽ nhận lệnh quyết toán công nợ.
+            </div>
+            <div style="background:#fff5f5;border:1px solid #ffcdd2;border-radius:8px;padding:10px 14px;font-size:12px;color:#c62828;margin-bottom:16px;display:none;" id="hv-loi-notice">
+              ⚠️ Bàn giao lỗi sẽ lưu biên bản sự vụ. Phòng Kinh Doanh sẽ liên hệ khách xử lý đổi trả.
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:12px;">
+              <button type="button" class="btn btn-secondary" onclick="closeHandoverModal()">Hủy</button>
+              <button type="submit" class="btn btn-primary" id="hv-submit-btn">✍️ Xác nhận bàn giao</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL SỰ CỐ LỘ TRÌNH -->
+    <div class="modal" id="issueModal">
+      <div class="modal-content">
+        <div class="modal-header" style="background:#fff3cd;">
+          <span style="font-weight:700;color:#856404;">⚠️ Báo Sự Cố Lộ Trình</span>
+          <button onclick="closeIssueModal()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
+        </div>
+        <form onsubmit="handleReportIssue(event)">
+          <div class="card-body">
+            <input type="hidden" id="issue-ma-giao-nhan">
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+              Ghi nhận sự cố xảy ra trong quá trình vận chuyển (hỏng xe, kẹt xe, khách vắng mặt...).
+              Hệ thống sẽ thông báo cho quản lý và khách hàng.
+            </p>
+            <div class="form-group">
+              <label class="form-label">Mô tả sự cố <span style="color:#ef4444;">*</span></label>
+              <textarea class="form-control" id="issue-mo-ta" rows="4"
+                placeholder="Ví dụ: Xe bị hỏng lốp tại đường Trường Chinh, dự kiến trễ 2 giờ..."
+                required></textarea>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:12px;">
+              <button type="button" class="btn btn-secondary" onclick="closeIssueModal()">Hủy</button>
+              <button type="submit" class="btn btn-warning">⚠️ Gửi báo cáo sự cố</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div th:replace="~{bo_cuc/footer :: footer}"></div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+  let _deliveries = [];
+
+  function switchTab(tab) {
+    ['ongoing','history'].forEach(t => {
+      document.getElementById('btn-' + t + '-tab').classList.remove('active');
+      document.getElementById(t + '-tab-content').classList.remove('active');
+    });
+    document.getElementById('btn-' + tab + '-tab').classList.add('active');
+    document.getElementById(tab + '-tab-content').classList.add('active');
+    if (tab === 'history') renderHistory();
+  }
+
+  function deliveryStatusBadge(s) {
+    switch(s) {
+      case 'CHO_GIAO':  return '<span class="badge badge-secondary">⏳ Chờ giao</span>';
+      case 'DANG_GIAO': return '<span class="badge badge-teal">🚚 Đang giao</span>';
+      case 'DA_GIAO':   return '<span class="badge badge-green">✅ Đã bàn giao</span>';
+      case 'THAT_BAI':  return '<span class="badge badge-red">❌ Giao thất bại</span>';
+      default: return `<span class="badge badge-secondary">${s}</span>`;
+    }
+  }
+
+  async function loadDeliveries() {
+    try {
+      const res = await fetch('/api/warehouse/deliveries');
+      _deliveries = await res.json();
+
+      const ongoing  = _deliveries.filter(d => d.trangThai === 'DANG_GIAO');
+      const done     = _deliveries.filter(d => d.trangThai === 'DA_GIAO');
+      const failed   = _deliveries.filter(d => d.trangThai === 'THAT_BAI');
+
+      document.getElementById('kpi-ongoing').textContent = ongoing.length + ' lộ trình';
+      document.getElementById('kpi-done').textContent = done.length + ' lộ trình';
+      document.getElementById('kpi-fail').textContent = failed.length + ' lộ trình';
+
+      renderOngoing(ongoing);
+      renderHistory();
+    } catch(e) {
+      document.getElementById('ongoing-container').innerHTML =
+        `<div style="color:red;padding:20px;">Lỗi tải dữ liệu: ${e.message}</div>`;
+    }
+  }
+
+  function renderOngoing(list) {
+    const container = document.getElementById('ongoing-container');
+    if (list.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center;padding:50px;color:var(--text-muted);">
+          <div style="font-size:48px;margin-bottom:12px;">🎉</div>
+          <div style="font-weight:600;font-size:15px;">Không có lộ trình giao hàng nào đang hoạt động!</div>
+          <div style="font-size:13px;margin-top:6px;">Tất cả đơn hàng đã được bàn giao hoặc chưa có lệnh xuất kho.</div>
+          <a href="/quan_ly_kho/quan_ly_don_hang" class="btn btn-primary btn-sm" style="margin-top:16px;">
+            📦 Xem đơn hàng cần xuất
+          </a>
+        </div>`;
+      return;
+    }
+
+    let html = '';
+    list.forEach(d => {
+      html += `
+        <div class="delivery-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div>
+              <span style="font-weight:800; font-size:15px; color:var(--kho-dark);">${d.maGiaoNhan}</span>
+              <span style="margin-left:10px;">${deliveryStatusBadge(d.trangThai)}</span>
+            </div>
+            <div class="flex-gap-8">
+              <button class="btn btn-success btn-sm" onclick="openHandoverModal('${d.maGiaoNhan}')">
+                ✍️ Ký Bàn Giao
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="openIssueModal('${d.maGiaoNhan}')">
+                ⚠️ Báo Sự Cố
+              </button>
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">📦 ĐƠN HÀNG</span>
+              <span class="info-value">${d.maDonHang || '—'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">👤 NGƯỜI NHẬN</span>
+              <span class="info-value">${d.nguoiNhan || '—'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">📞 SĐT NHẬN</span>
+              <span class="info-value">
+                <a href="tel:${d.soDienThoaiNhan}" style="color:var(--kh-primary);">${d.soDienThoaiNhan || '—'}</a>
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">🕐 DỰ KIẾN GIAO</span>
+              <span class="info-value">${d.ngayGiaoDuKien || '—'}</span>
+            </div>
+          </div>
+
+          <div style="margin-top:8px;">
+            <span class="info-label">📍 ĐỊA CHỈ GIAO</span>
+            <div style="font-size:13px;color:var(--text-main);margin-top:3px;">${d.diaChiGiao || '—'}</div>
+          </div>
+          <div style="margin-top:8px;">
+            <span class="info-label">🗺️ LỘ TRÌNH</span>
+            <div style="font-size:13px;color:var(--text-main);margin-top:3px;">${d.loTrinh || '—'}</div>
+          </div>
+          ${d.ghiChuGiao ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted);"><span class="info-label">📝 GHI CHÚ</span>${d.ghiChuGiao}</div>` : ''}
+        </div>`;
+    });
+    container.innerHTML = html;
+  }
+
+  function renderHistory() {
+    const all = _deliveries.filter(d => d.trangThai === 'DA_GIAO' || d.trangThai === 'THAT_BAI');
+    const tbody = document.getElementById('history-tbody');
+    if (all.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Chưa có lịch sử bàn giao</td></tr>`;
+      return;
+    }
+    let html = '';
+    all.forEach(d => {
+      html += `
+        <tr>
+          <td style="font-weight:700;">${d.maGiaoNhan}</td>
+          <td>${d.maDonHang || '—'}</td>
+          <td>${d.nguoiNhan || '—'}</td>
+          <td>${d.soDienThoaiNhan || '—'}</td>
+          <td style="max-width:160px;font-size:12px;">${d.diaChiGiao || '—'}</td>
+          <td>${d.ngayBanGiao || '—'}</td>
+          <td>${deliveryStatusBadge(d.trangThai)}</td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+
+  // ===== HANDOVER MODAL =====
+  function openHandoverModal(maGiaoNhan) {
+    const d = _deliveries.find(x => x.maGiaoNhan === maGiaoNhan);
+    if (!d) return;
+
+    document.getElementById('hv-ma-giao-nhan').value = maGiaoNhan;
+    document.getElementById('handoverModalTitle').textContent = `✍️ Bàn Giao - Lộ Trình ${maGiaoNhan}`;
+    document.getElementById('hv-tinh-trang').value = 'OK';
+    document.getElementById('hv-mo-ta-loi').value = '';
+    document.getElementById('hv-ghi-chu').value = '';
+    document.getElementById('issue-box').style.display = 'none';
+    document.getElementById('hv-ok-notice').style.display = 'block';
+    document.getElementById('hv-loi-notice').style.display = 'none';
+
+    document.getElementById('hv-summary').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+        <div><span style="color:var(--text-muted);font-size:11px;">LỘ TRÌNH</span><br><strong>${maGiaoNhan}</strong></div>
+        <div><span style="color:var(--text-muted);font-size:11px;">ĐƠN HÀNG</span><br><strong>${d.maDonHang}</strong></div>
+        <div><span style="color:var(--text-muted);font-size:11px;">NGƯỜI NHẬN</span><br><strong>${d.nguoiNhan}</strong></div>
+        <div><span style="color:var(--text-muted);font-size:11px;">SĐT</span><br>${d.soDienThoaiNhan}</div>
+        <div style="grid-column:span 2;"><span style="color:var(--text-muted);font-size:11px;">ĐỊA CHỈ</span><br>${d.diaChiGiao}</div>
+      </div>`;
+
+    document.getElementById('handoverModal').classList.add('show');
+  }
+
+  function closeHandoverModal() {
+    document.getElementById('handoverModal').classList.remove('show');
+  }
+
+  function toggleIssueBox() {
+    const val = document.getElementById('hv-tinh-trang').value;
+    document.getElementById('issue-box').style.display = val === 'LOI' ? 'block' : 'none';
+    document.getElementById('hv-ok-notice').style.display = val === 'OK' ? 'block' : 'none';
+    document.getElementById('hv-loi-notice').style.display = val === 'LOI' ? 'block' : 'none';
+  }
+
+  async function handleHandover(e) {
+    e.preventDefault();
+    const btn = document.getElementById('hv-submit-btn');
+    btn.disabled = true; btn.textContent = 'Đang xử lý...';
+
+    const maGiaoNhan = document.getElementById('hv-ma-giao-nhan').value;
+    const tinhTrang = document.getElementById('hv-tinh-trang').value;
+    const moTaLoi = document.getElementById('hv-mo-ta-loi').value;
+    const ghiChu = document.getElementById('hv-ghi-chu').value;
+
+    const fullGhiChu = tinhTrang === 'LOI'
+      ? (moTaLoi ? 'Sự cố: ' + moTaLoi + (ghiChu ? ' | ' + ghiChu : '') : ghiChu)
+      : ghiChu;
+
+    try {
+      const res = await fetch('/api/warehouse/delivery/confirm-handover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maGiaoNhan, tinhTrang, ghiChu: fullGhiChu })
+      });
+      const result = await res.json();
+      if (res.ok) {
+        alert('✅ ' + result.message);
+        closeHandoverModal();
+        loadDeliveries();
+      } else {
+        alert('❌ Lỗi: ' + (typeof result === 'string' ? result : result.message));
+      }
+    } catch(err) {
+      alert('❌ Lỗi kết nối: ' + err.message);
+    }
+
+    btn.disabled = false; btn.textContent = '✍️ Xác nhận bàn giao';
+  }
+
+  // ===== REPORT ISSUE MODAL =====
+  function openIssueModal(maGiaoNhan) {
+    document.getElementById('issue-ma-giao-nhan').value = maGiaoNhan;
+    document.getElementById('issue-mo-ta').value = '';
+    document.getElementById('issueModal').classList.add('show');
+  }
+  function closeIssueModal() {
+    document.getElementById('issueModal').classList.remove('show');
+  }
+
+  async function handleReportIssue(e) {
+    e.preventDefault();
+    const maGiaoNhan = document.getElementById('issue-ma-giao-nhan').value;
+    const moTa = document.getElementById('issue-mo-ta').value;
+
+    try {
+      const res = await fetch('/api/warehouse/delivery/report-issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maGiaoNhan, moTa })
+      });
+      const result = await res.json();
+      if (res.ok) {
+        alert('✅ ' + result.message);
+        closeIssueModal();
+        loadDeliveries();
+      } else {
+        alert('❌ Lỗi: ' + (typeof result === 'string' ? result : result.message));
+      }
+    } catch(err) {
+      alert('❌ Lỗi kết nối: ' + err.message);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', loadDeliveries);
+</script>
+
+</body>
+</html>

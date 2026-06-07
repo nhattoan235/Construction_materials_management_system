@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đơn hàng xuất kho - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0,0,0,0.45);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal.show { display: flex; }
+    .modal-content {
+      background-color: var(--bg-card);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 680px;
+      max-height: 92vh;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      animation: modalSlide 0.25s ease;
+    }
+    .item-tag {
+      display: inline-block;
+      background: var(--kho-light);
+      color: var(--kho-dark);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      margin: 2px;
+    }
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .step-pending { background: #e3f2fd; color: #1565c0; }
+    .step-ready   { background: #e8f5e9; color: #2e7d32; }
+    .step-going   { background: #fff3e0; color: #e65100; }
+    .step-done    { background: #f3e5f5; color: #6a1b9a; }
+  </style>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+
+  <div class="main-content">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+      <div>
+        <h4 style="font-weight:700;">Đơn Hàng Cần Chuẩn Bị & Xuất Kho</h4>
+        <p class="text-muted-desc">Theo dõi đơn hàng đã được kinh doanh xác nhận, bốc xếp vật tư và lập lộ trình giao hàng.</p>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="loadOrders()">🔄 Làm mới</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="dashboard-grid" style="margin-bottom:24px;">
+      <div class="stat-card" style="border-left:4px solid var(--kh-primary);">
+        <div class="stat-card-title">Chờ xuất kho (Đã xác nhận)</div>
+        <div class="stat-card-value" style="color:var(--kh-dark);" id="kpi-need-export">—</div>
+        <div class="stat-card-desc">Đơn KD đã duyệt, kho chưa xuất</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid var(--kho-primary);">
+        <div class="stat-card-title">Đang trên đường giao</div>
+        <div class="stat-card-value" style="color:var(--kho-dark);" id="kpi-in-delivery">—</div>
+        <div class="stat-card-desc">Đã lập lộ trình, đang di chuyển</div>
+      </div>
+    </div>
+
+    <!-- Quy trình nghiệp vụ -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-body" style="padding:14px 20px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; color:var(--text-muted);">
+          <strong style="color:var(--text-main);">Quy trình:</strong>
+          <span class="step-badge step-pending">① KD Xác Nhận Đơn</span>
+          <span style="color:var(--border-color);">→</span>
+          <span class="step-badge step-ready">② Kho Xuất Hàng & Lập Lộ Trình</span>
+          <span style="color:var(--border-color);">→</span>
+          <span class="step-badge step-going">③ Đang Giao Hàng</span>
+          <span style="color:var(--border-color);">→</span>
+          <span class="step-badge step-done">④ Bàn Giao & Hoàn Thành</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Danh sách đơn hàng cần xử lý tại kho</span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Mã Đơn</th>
+              <th>Khách Hàng</th>
+              <th>SĐT</th>
+              <th>Địa Chỉ Giao</th>
+              <th>Mặt Hàng</th>
+              <th>Ngày Đặt</th>
+              <th>Trạng Thái</th>
+              <th style="text-align:center;">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="orders-tbody">
+            <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-muted);">Đang tải danh sách đơn hàng...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MODAL LẬP LỘ TRÌNH -->
+    <div class="modal" id="routeModal">
+      <div class="modal-content">
+        <div class="modal-header" style="background-color:var(--kho-light);">
+          <span style="font-weight:700; color:var(--kho-dark);" id="routeModalTitle">🚚 Lập Lộ Trình Giao Hàng</span>
+          <button onclick="closeRouteModal()" style="background:none;border:none;font-size:20px;cursor:pointer;">&times;</button>
+        </div>
+        <form onsubmit="handleCreateRoute(event)">
+          <div class="card-body">
+            <input type="hidden" id="route-don-hang-id">
+
+            <!-- Order summary -->
+            <div id="route-order-summary" style="background:#f8fafc;border:1px solid var(--border-color);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Tài xế & Phương tiện <span style="color:#ef4444;">*</span></label>
+                <input type="text" class="form-control" id="route-tai-xe"
+                  placeholder="Ví dụ: Nguyễn Văn Tài - Xe tải 1.5T - 51C-123.45" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">SĐT tài xế <span style="color:#ef4444;">*</span></label>
+                <input type="text" class="form-control" id="route-sdt-tai-xe" placeholder="0909..." required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Lộ trình đường đi <span style="color:#ef4444;">*</span></label>
+              <textarea class="form-control" id="route-lo-trinh" rows="2"
+                placeholder="Ví dụ: Kho Tân Bình → Trường Chinh → Cộng Hòa → Địa chỉ giao hàng" required></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Ghi chú giao hàng</label>
+              <textarea class="form-control" id="route-ghi-chu" rows="2"
+                placeholder="Lưu ý khi giao, cổng vào, giờ nhận hàng của khách..."></textarea>
+            </div>
+
+            <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;font-size:12px;color:#f57f17;margin-bottom:16px;">
+              ⚡ <strong>Lưu ý:</strong> Sau khi xác nhận, đơn hàng sẽ chuyển sang trạng thái <strong>"Đang Giao Hàng"</strong>.
+              Hệ thống sẽ ghi nhận lộ trình và thông báo đến bộ phận giao nhận.
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:12px;">
+              <button type="button" class="btn btn-secondary" onclick="closeRouteModal()">Hủy</button>
+              <button type="submit" class="btn btn-primary" id="route-submit-btn">🚚 Xác nhận xuất xe & Giao hàng</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div th:replace="~{bo_cuc/footer :: footer}"></div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+  let _orders = [];
+
+  function fmtMoney(v) {
+    if (!v && v !== 0) return '—';
+    return Number(v).toLocaleString('vi-VN') + 'đ';
+  }
+
+  function orderStatusBadge(s) {
+    switch(s) {
+      case 'DA_XAC_NHAN': return '<span class="badge badge-blue">✅ Đã Xác Nhận - Chờ Xuất</span>';
+      case 'DANG_GIAO':   return '<span class="badge badge-teal">🚚 Đang Giao Hàng</span>';
+      case 'HOAN_THANH':  return '<span class="badge badge-green">🎉 Hoàn Thành</span>';
+      default: return `<span class="badge badge-secondary">${s}</span>`;
+    }
+  }
+
+  async function loadOrders() {
+    try {
+      const [ordRes, sumRes] = await Promise.all([
+        fetch('/api/warehouse/orders-to-export'),
+        fetch('/api/warehouse/summary')
+      ]);
+      _orders = await ordRes.json();
+      const sum = await sumRes.json();
+
+      document.getElementById('kpi-need-export').textContent = sum.needExport + ' đơn hàng';
+      document.getElementById('kpi-in-delivery').textContent = sum.inDelivery + ' lộ trình';
+
+      const tbody = document.getElementById('orders-tbody');
+      if (_orders.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-muted);">
+          🎉 Không có đơn hàng nào cần xử lý kho lúc này!
+        </td></tr>`;
+        return;
+      }
+
+      let html = '';
+      _orders.forEach(o => {
+        const items = (o.chiTiet || []).map(i =>
+          `<span class="item-tag">${i.tenHang} (${i.soLuong} ${i.donViTinh})</span>`
+        ).join('');
+
+        let actionBtn = '';
+        if (o.trangThai === 'DA_XAC_NHAN' && !o.daLapLoTrinh) {
+          actionBtn = `<button class="btn btn-primary btn-sm" onclick="openRouteModal(${o.id})">
+            🚚 Lập lộ trình
+          </button>`;
+        } else if (o.trangThai === 'DANG_GIAO') {
+          actionBtn = `<span style="font-size:12px;color:var(--text-muted);">
+            🔄 Đang giao: <strong>${o.maGiaoNhan || '—'}</strong>
+          </span>`;
+        } else {
+          actionBtn = `<span class="badge badge-green">Hoàn thành</span>`;
+        }
+
+        html += `
+          <tr>
+            <td style="font-weight:700;">${o.maDonHang}</td>
+            <td style="font-weight:600;">${o.khachHangTen}</td>
+            <td><a href="tel:${o.soDienThoai}" style="color:var(--kh-primary);">${o.soDienThoai || '—'}</a></td>
+            <td style="max-width:180px;font-size:12px;">${o.diaChiGiao || '—'}</td>
+            <td style="max-width:220px;">${items || '—'}</td>
+            <td>${o.ngayDat}</td>
+            <td>${orderStatusBadge(o.trangThai)}</td>
+            <td style="text-align:center;">${actionBtn}</td>
+          </tr>`;
+      });
+      tbody.innerHTML = html;
+    } catch(e) {
+      document.getElementById('orders-tbody').innerHTML =
+        `<tr><td colspan="8" style="text-align:center;color:red;padding:20px;">Lỗi tải dữ liệu: ${e.message}</td></tr>`;
+    }
+  }
+
+  function openRouteModal(donHangId) {
+    const order = _orders.find(o => o.id === donHangId);
+    if (!order) return;
+
+    document.getElementById('route-don-hang-id').value = donHangId;
+    document.getElementById('routeModalTitle').textContent = `🚚 Lập Lộ Trình - Đơn ${order.maDonHang}`;
+
+    const items = (order.chiTiet || []).map(i =>
+      `<span class="item-tag">${i.tenHang}: ${i.soLuong} ${i.donViTinh}</span>`
+    ).join(' ');
+
+    document.getElementById('route-order-summary').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div><span style="color:var(--text-muted);font-size:11px;">ĐƠN HÀNG</span><br><strong>${order.maDonHang}</strong></div>
+        <div><span style="color:var(--text-muted);font-size:11px;">KHÁCH NHẬN</span><br><strong>${order.khachHangTen}</strong> - ${order.soDienThoai || ''}</div>
+        <div style="grid-column:span 2;"><span style="color:var(--text-muted);font-size:11px;">ĐỊA CHỈ GIAO</span><br>${order.diaChiGiao || 'Chưa có địa chỉ'}</div>
+        <div style="grid-column:span 2;"><span style="color:var(--text-muted);font-size:11px;">VẬT TƯ GIAO</span><br>${items || '—'}</div>
+      </div>`;
+
+    // Pre-fill route
+    document.getElementById('route-lo-trinh').value =
+      `Kho chính → ${order.diaChiGiao || 'Địa chỉ giao hàng'}`;
+    document.getElementById('route-tai-xe').value = '';
+    document.getElementById('route-sdt-tai-xe').value = '';
+    document.getElementById('route-ghi-chu').value = '';
+
+    document.getElementById('routeModal').classList.add('show');
+  }
+
+  function closeRouteModal() {
+    document.getElementById('routeModal').classList.remove('show');
+  }
+
+  async function handleCreateRoute(e) {
+    e.preventDefault();
+    const btn = document.getElementById('route-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Đang xử lý...';
+
+    const donHangId = document.getElementById('route-don-hang-id').value;
+    const loTrinh = document.getElementById('route-lo-trinh').value;
+    const taiXe = document.getElementById('route-tai-xe').value + ' | SĐT: ' + document.getElementById('route-sdt-tai-xe').value;
+    const ghiChu = document.getElementById('route-ghi-chu').value;
+
+    try {
+      const res = await fetch('/api/warehouse/delivery/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ donHangId: parseInt(donHangId), loTrinh, taiXe, ghiChu })
+      });
+      const result = await res.json();
+      if (res.ok) {
+        alert('✅ ' + result.message);
+        closeRouteModal();
+        loadOrders();
+      } else {
+        alert('❌ Lỗi: ' + (typeof result === 'string' ? result : result.message));
+      }
+    } catch(err) {
+      alert('❌ Lỗi kết nối: ' + err.message);
+    }
+
+    btn.disabled = false;
+    btn.textContent = '🚚 Xác nhận xuất xe & Giao hàng';
+  }
+
+  document.addEventListener('DOMContentLoaded', loadOrders);
+</script>
+
+</body>
+</html>

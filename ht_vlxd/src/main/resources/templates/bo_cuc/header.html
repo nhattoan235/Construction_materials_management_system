@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+</head>
+<body>
+
+<div th:fragment="header" class="top-navbar">
+  <script src="/js/custom-alert.js"></script>
+  <div class="brand-section">
+    <div class="brand-logo">G</div>
+    <div class="brand-name">Hệ thống Quản lý VLXD Sài Gòn CMC</div>
+  </div>
+  
+  <div class="user-section">
+    <!-- Prototype Role Selector -->
+    <div class="flex-gap-8" style="background-color: #f1f5f9; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border-color);">
+      <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Vai trò (Demo):</span>
+      <select id="demoRoleSelector" onchange="switchDemoRole(this.value)" style="border: none; background: none; font-size: 13px; font-weight: 600; color: var(--text-dark); cursor: pointer; outline: none;">
+        <option value="KHACH_HANG">Khách Hàng</option>
+        <option value="NV_KINH_DOANH">NV Kinh Doanh</option>
+        <option value="NV_KE_TOAN">NV Kế Toán</option>
+        <option value="BAN_QUAN_LY">Ban Quản Lý</option>
+        <option value="NV_KHO">Nhân Viên Kho</option>
+        <option value="QUAN_TRI_VIEN">Quản Trị Viên</option>
+      </select>
+    </div>
+
+    <!-- User Profile Dropdown -->
+    <div class="flex-gap-8" style="cursor: pointer; position: relative; padding: 4px 8px; border-radius: 8px; transition: background-color 0.2s;" id="profileDropdownBtn" onmouseover="this.style.backgroundColor='#cbd5e122'" onmouseout="this.style.backgroundColor='transparent'">
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="border-radius: 50%; background-color: #cbd5e1; border: 1px solid var(--border-subtle);">
+        <path d="M18 18C21.3137 18 24 15.3137 24 12C24 8.68629 21.3137 6 18 6C14.6863 6 12 8.68629 12 12C12 15.3137 14.6863 18 18 18Z" fill="#94a3b8"/>
+        <path d="M18 20C12.4772 20 8 24.4772 8 30H28C28 24.4772 23.5228 20 18 20Z" fill="#94a3b8"/>
+      </svg>
+      <div style="display: flex; flex-direction: column;">
+        <span style="font-size: 13px; font-weight: 600;" id="navUserName">Người dùng mẫu</span>
+        <span id="navRoleBadge" class="badge badge-blue" style="font-size: 10px; width: fit-content;">Khách hàng</span>
+      </div>
+
+      <!-- Sổ xuống các lựa chọn (Facebook Profile style) -->
+      <div class="dropdown-menu" id="profileDropdownMenu" style="display: none; position: absolute; top: 52px; right: 0; background-color: #ffffff; border: 1px solid var(--border-subtle); border-radius: 12px; box-shadow: var(--shadow-hover); width: 180px; z-index: 1000; overflow: hidden; padding: 6px 0;">
+        <a href="/dung_chung/thong_tin_ca_nhan" style="display: block; padding: 10px 16px; font-size: 13px; color: var(--text-main); text-decoration: none; font-weight: 500; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#f1f5f9'" onmouseout="this.style.backgroundColor='transparent'">
+          Hồ sơ cá nhân
+        </a>
+        <a href="/khach_hang/don_hang_cua_toi" id="dropdownOrderLink" style="display: block; padding: 10px 16px; font-size: 13px; color: var(--text-main); text-decoration: none; font-weight: 500; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#f1f5f9'" onmouseout="this.style.backgroundColor='transparent'">
+          Đơn hàng của tôi
+        </a>
+        <div style="border-top: 1px solid var(--border-subtle); margin: 6px 0;"></div>
+        <a href="/login" onclick="logoutUser()" style="display: block; padding: 10px 16px; font-size: 13px; color: #ef4444; text-decoration: none; font-weight: 600; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#fef2f2'" onmouseout="this.style.backgroundColor='transparent'">
+          Đăng xuất
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="javascript">
+    function logoutUser() {
+      localStorage.removeItem('logged_in_name');
+      localStorage.removeItem('logged_in_username');
+      localStorage.setItem('demo_role', 'KHACH_HANG');
+    }
+
+    function updateNavbarRoleUI(role) {
+      const badge = document.getElementById('navRoleBadge');
+      const name = document.getElementById('navUserName');
+      
+      badge.className = 'badge';
+      
+      const customName = localStorage.getItem('logged_in_name');
+      
+      switch(role) {
+        case 'KHACH_HANG':
+          badge.classList.add('badge-blue');
+          badge.innerText = 'Khách hàng';
+          name.innerText = customName || 'Nguyễn Văn Khách';
+          break;
+        case 'NV_KINH_DOANH':
+          badge.classList.add('badge-green');
+          badge.innerText = 'Kinh doanh';
+          name.innerText = customName || 'Trần Thị Kinh Doanh';
+          break;
+        case 'NV_KE_TOAN':
+          badge.classList.add('badge-orange');
+          badge.innerText = 'Kế toán';
+          name.innerText = customName || 'Phạm Thị Kế Toán';
+          break;
+        case 'BAN_QUAN_LY':
+          badge.classList.add('badge-purple');
+          badge.innerText = 'Ban quản lý';
+          name.innerText = customName || 'Nguyễn Văn Giám Đốc';
+          break;
+        case 'NV_KHO':
+          badge.classList.add('badge-teal');
+          badge.innerText = 'Nhân viên Kho';
+          name.innerText = customName || 'Lê Văn Kho';
+          break;
+        case 'QUAN_TRI_VIEN':
+          badge.classList.add('badge-grey');
+          badge.innerText = 'Quản trị viên';
+          name.innerText = customName || 'Quản trị viên';
+          break;
+      }
+
+      const orderLink = document.getElementById('dropdownOrderLink');
+      if (orderLink) {
+        orderLink.style.display = (role === 'KHACH_HANG') ? 'block' : 'none';
+      }
+    }
+
+    function switchDemoRole(role) {
+      localStorage.setItem('demo_role', role);
+      
+      const defaultUsers = {
+        'KHACH_HANG': { username: 'khachhang01', name: 'Nguyễn Văn Khách' },
+        'NV_KINH_DOANH': { username: 'nvkd01', name: 'Trần Thị Kinh Doanh' },
+        'NV_KE_TOAN': { username: 'nvkt01', name: 'Phạm Thị Kế Toán' },
+        'BAN_QUAN_LY': { username: 'giamdoc', name: 'Nguyễn Văn Giám Đốc' },
+        'NV_KHO': { username: 'nvkho01', name: 'Lê Văn Kho' },
+        'QUAN_TRI_VIEN': { username: 'admin', name: 'Quản trị viên' }
+      };
+
+      const user = defaultUsers[role];
+      if (user) {
+        localStorage.setItem('logged_in_username', user.username);
+        localStorage.setItem('logged_in_name', user.name);
+      } else {
+        localStorage.removeItem('logged_in_name');
+        localStorage.removeItem('logged_in_username');
+      }
+      
+      updateNavbarRoleUI(role);
+      
+      if (typeof updateSidebarMenu === 'function') {
+        updateSidebarMenu(role);
+      }
+      
+      let currentPath = window.location.pathname;
+      if (currentPath === '/login' || currentPath === '/register' || currentPath === '/auth') {
+        return;
+      }
+      
+      const roleHomeMap = {
+        'KHACH_HANG': '/khach_hang/don_hang_cua_toi',
+        'NV_KINH_DOANH': '/kinh_doanh/quan_ly_don_hang',
+        'NV_KE_TOAN': '/ke_toan/quan_ly_tai_chinh_va_cong_no',
+        'BAN_QUAN_LY': '/ban_quan_ly/dashboard_tong_quan',
+        'NV_KHO': '/quan_ly_kho/quan_ly_kho',
+        'QUAN_TRI_VIEN': '/quan_tri_vien/quan_ly_tai_khoan'
+      };
+      
+      if (roleHomeMap[role] && currentPath !== roleHomeMap[role]) {
+         window.location.href = roleHomeMap[role];
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      let savedRole = localStorage.getItem('demo_role') || 'KHACH_HANG';
+      
+      // If no user is logged in, bind the default seeded user for the active savedRole
+      if (!localStorage.getItem('logged_in_username')) {
+        const defaultUsers = {
+          'KHACH_HANG': { username: 'khachhang01', name: 'Nguyễn Văn Khách' },
+          'NV_KINH_DOANH': { username: 'nvkd01', name: 'Trần Thị Kinh Doanh' },
+          'NV_KE_TOAN': { username: 'nvkt01', name: 'Phạm Thị Kế Toán' },
+          'BAN_QUAN_LY': { username: 'giamdoc', name: 'Nguyễn Văn Giám Đốc' },
+          'NV_KHO': { username: 'nvkho01', name: 'Lê Văn Kho' },
+          'QUAN_TRI_VIEN': { username: 'admin', name: 'Quản trị viên' }
+        };
+        const defaultUser = defaultUsers[savedRole];
+        if (defaultUser) {
+          localStorage.setItem('logged_in_username', defaultUser.username);
+          localStorage.setItem('logged_in_name', defaultUser.name);
+        }
+      }
+
+      const selector = document.getElementById('demoRoleSelector');
+      if (selector) {
+        selector.value = savedRole;
+      }
+      updateNavbarRoleUI(savedRole);
+
+      // Background check if logged-in account is locked/deleted/role updated in real-time
+      const currentUsername = localStorage.getItem('logged_in_username');
+      if (currentUsername) {
+        fetch('/api/khach_hang/profile?username=' + encodeURIComponent(currentUsername))
+          .then(res => {
+            if (res.ok) return res.json();
+            throw new Error('Not found');
+          })
+          .then(data => {
+            if (data.trangThai === 'BI_KHOA') {
+              alert('Tài khoản của bạn đã bị khóa bởi Quản trị viên!', function() {
+                localStorage.removeItem('logged_in_username');
+                localStorage.removeItem('logged_in_name');
+                localStorage.setItem('demo_role', 'KHACH_HANG');
+                window.location.href = '/login';
+              });
+            } else if (data.trangThai === 'CHO_DUYET') {
+              alert('Tài khoản của bạn đang trong trạng thái chờ duyệt!', function() {
+                localStorage.removeItem('logged_in_username');
+                localStorage.removeItem('logged_in_name');
+                localStorage.setItem('demo_role', 'KHACH_HANG');
+                window.location.href = '/login';
+              });
+            } else if (data.role && data.role !== savedRole) {
+              // If role was updated by admin, synchronize role and UI
+              localStorage.setItem('demo_role', data.role);
+              const selector = document.getElementById('demoRoleSelector');
+              if (selector) {
+                selector.value = data.role;
+              }
+              updateNavbarRoleUI(data.role);
+              if (typeof updateSidebarMenu === 'function') {
+                updateSidebarMenu(data.role);
+              }
+            }
+          })
+          .catch(err => {
+            alert('Tài khoản của bạn không tồn tại hoặc đã bị xóa khỏi hệ thống!', function() {
+              localStorage.removeItem('logged_in_username');
+              localStorage.removeItem('logged_in_name');
+              localStorage.setItem('demo_role', 'KHACH_HANG');
+              window.location.href = '/login';
+            });
+          });
+      }
+
+      // Dropdown toggle trigger
+      const dropdownBtn = document.getElementById('profileDropdownBtn');
+      const dropdownMenu = document.getElementById('profileDropdownMenu');
+      if (dropdownBtn && dropdownMenu) {
+        dropdownBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          dropdownMenu.style.display = dropdownMenu.style.display === 'none' ? 'block' : 'none';
+        });
+        document.addEventListener('click', function() {
+          dropdownMenu.style.display = 'none';
+        });
+      }
+    });
+  </script>
+</div>
+
+</body>
+</html>

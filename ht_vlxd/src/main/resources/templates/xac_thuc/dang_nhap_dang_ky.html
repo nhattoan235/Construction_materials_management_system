@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng nhập / Đăng ký - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/custom-alert.js"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+      background-attachment: fixed;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    
+    .auth-container {
+      width: 100%;
+      max-width: 950px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 24px;
+      box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      display: flex;
+      overflow: hidden;
+      min-height: 560px;
+      transition: transform 0.3s ease;
+    }
+    
+    .auth-sidebar {
+      flex: 1.1;
+      background: linear-gradient(135deg, #e6f0ed 0%, #cbdad5 100%);
+      padding: 48px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-right: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    
+    .auth-form-section {
+      width: 480px;
+      padding: 48px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    
+    .auth-logo {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background-color: var(--bg-card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 800;
+      color: #3b6d63;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+    }
+    
+    .tab-btn {
+      padding: 12px 16px;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text-muted);
+      border: none;
+      background: none;
+      cursor: pointer;
+      transition: color 0.2s ease, border-color 0.2s ease;
+      position: relative;
+    }
+    
+    .tab-btn.active {
+      color: #3b6d63;
+    }
+    
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: #3b6d63;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      font-size: 13.5px;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      font-size: 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: #76a89c;
+      box-shadow: 0 0 0 3px rgba(118, 168, 156, 0.15);
+    }
+
+    .demo-badge-card {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 8px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .demo-badge-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px -4px rgba(15, 23, 42, 0.06);
+      border-color: #cbd5e1;
+    }
+    
+    @media (max-width: 820px) {
+      .auth-container {
+        flex-direction: column;
+        max-width: 480px;
+      }
+      .auth-sidebar {
+        display: none;
+      }
+      .auth-form-section {
+        width: 100%;
+        padding: 32px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="auth-container">
+  <!-- Left Side: Brand and Info -->
+  <div class="auth-sidebar">
+    <div>
+      <div class="auth-logo">VL</div>
+      <h3 style="margin-top: 24px; font-weight: 800; color: #2c3e3b; line-height: 1.3; font-size: 24px; letter-spacing: -0.01em;">Hệ thống Số hóa<br>VLXD Sài Gòn CMC</h3>
+      <p style="margin-top: 14px; font-size: 14px; color: var(--text-muted); line-height: 1.6;">Ứng dụng quản lý toàn diện quy trình giao dịch vật tư xây dựng, tự động đối soát công nợ, quản lý kho bãi, theo dõi lộ trình bàn giao công trình tức thời.</p>
+    </div>
+    <div>
+      <span style="font-size: 12px; font-weight: 600; color: #2c3e3b; opacity: 0.75;">&copy; 2026 Sài Gòn CMC | Giải pháp Chuỗi cung ứng</span>
+    </div>
+  </div>
+  
+  <!-- Right Side: Forms Section -->
+  <div class="auth-form-section">
+    <!-- Tab Navigation -->
+    <div class="tabs-container" style="border-bottom: 2px solid #e2e8f0; display: flex; margin-bottom: 24px; gap: 16px;">
+      <button class="tab-btn active" onclick="switchAuthTab('login')" id="btn-login-tab" style="flex: 1;">Đăng Nhập</button>
+      <button class="tab-btn" onclick="switchAuthTab('register')" id="btn-register-tab" style="flex: 1;">Đăng Ký</button>
+    </div>
+
+    <!-- 1. LOGIN FORM -->
+    <div id="login-tab-content" class="tab-content active">
+      <h4 style="font-weight: 700; margin-bottom: 8px; color: var(--text-main);">Chào mừng trở lại!</h4>
+      <p class="text-muted-desc" style="margin-bottom: 24px; font-size: 13.5px;">Vui lòng nhập tài khoản được cấp để tiếp tục.</p>
+      
+      <form action="/login" method="post" onsubmit="return handleDemoLogin(event)">
+        <div class="form-group">
+          <label class="form-label" for="login-username">Tên đăng nhập</label>
+          <input type="text" id="login-username" class="form-control" placeholder="Nhập tên đăng nhập hoặc số điện thoại" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="login-password">Mật khẩu</label>
+          <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+          <label class="flex-gap-8" style="font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--text-muted);">
+            <input type="checkbox" style="border-radius: 4px; width: 15px; height: 15px;"> Ghi nhớ đăng nhập
+          </label>
+          <a href="#" style="font-size: 13px; color: #3b6d63; text-decoration: none; font-weight: 600;">Quên mật khẩu?</a>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px 20px; font-weight: 700; background-color: #3b6d63; border: none; border-radius: 10px; color: #fff; cursor: pointer; font-size: 14.5px;">Đăng Nhập</button>
+      </form>
+    </div>
+
+    <!-- 2. REGISTER FORM -->
+    <div id="register-tab-content" class="tab-content" style="display: none;">
+      <h4 style="font-weight: 700; margin-bottom: 8px; color: var(--text-main);">Tạo tài khoản Khách hàng</h4>
+      <p class="text-muted-desc" style="margin-bottom: 24px; font-size: 13.5px;">Đăng ký để tự tra cứu sản phẩm, tạo đơn hàng nhanh chóng.</p>
+      
+      <form action="/register" method="post" onsubmit="return handleDemoRegister(event)">
+        <div class="form-group">
+          <label class="form-label" for="reg-fullname">Họ và tên</label>
+          <input type="text" id="reg-fullname" class="form-control" placeholder="Ví dụ: Nguyễn Văn A" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-phone">Số điện thoại</label>
+          <input type="tel" id="reg-phone" class="form-control" placeholder="Ví dụ: 0987654321" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-address">Địa chỉ giao hàng mặc định</label>
+          <input type="text" id="reg-address" class="form-control" placeholder="Nhập địa chỉ nhận hàng/công trình" required>
+        </div>
+        <div class="form-row" style="display: flex; gap: 12px;">
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label" for="reg-password">Mật khẩu</label>
+            <input type="password" id="reg-password" class="form-control" placeholder="••••••••" required>
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label" for="reg-confirm">Xác nhận mật khẩu</label>
+            <input type="password" id="reg-confirm" class="form-control" placeholder="••••••••" required>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px 20px; font-weight: 700; background-color: #3b6d63; border: none; border-radius: 10px; color: #fff; cursor: pointer; font-size: 14.5px; margin-top: 10px;">Đăng Ký Tài Khoản</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Credentials Autofill Badges Grid -->
+<div style="margin-top: 36px; width: 100%; max-width: 950px; text-align: center;">
+  <h5 style="font-weight: 700; color: #334155; margin-bottom: 16px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: center; gap: 8px;">
+    <span>⚡ TÀI KHOẢN MẪU HỆ THỐNG (CLICK ĐỂ ĐĂNG NHẬP NHANH)</span>
+  </h5>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 14px;">
+    <!-- Khách hàng -->
+    <div class="demo-badge-card" onclick="autoFill('khachhang01', 'Admin@123')" style="background-color: var(--kh-light); border: 1px solid var(--kh-border); color: var(--kh-dark);">
+      <div style="font-size: 20px; margin-bottom: 4px;">👤</div>
+      <div style="font-weight: 700; font-size: 13px;">Khách Hàng</div>
+      <div style="font-size: 11px; opacity: 0.8; margin-top: 2px;">khachhang01</div>
+    </div>
+    <!-- Nhân viên kinh doanh -->
+    <div class="demo-badge-card" onclick="autoFill('nvkd01', 'Admin@123')" style="background-color: var(--kd-light); border: 1px solid var(--kd-border); color: var(--kd-dark);">
+      <div style="font-size: 20px; margin-bottom: 4px;">💼</div>
+      <div style="font-weight: 700; font-size: 13px;">Kinh Doanh</div>
+      <div style="font-size: 11px; opacity: 0.8; margin-top: 2px;">nvkd01</div>
+    </div>
+    <!-- Kế toán -->
+    <div class="demo-badge-card" onclick="autoFill('nvkt01', 'Admin@123')" style="background-color: var(--kt-light); border: 1px solid var(--kt-border); color: var(--kt-dark);">
+      <div style="font-size: 20px; margin-bottom: 4px;">📊</div>
+      <div style="font-weight: 700; font-size: 13px;">Kế Toán</div>
+      <div style="font-size: 11px; opacity: 0.8; margin-top: 2px;">nvkt01</div>
+    </div>
+    <!-- Thủ kho -->
+    <div class="demo-badge-card" onclick="autoFill('nvkho01', 'Admin@123')" style="background-color: var(--kho-light); border: 1px solid var(--kho-border); color: var(--kho-dark);">
+      <div style="font-size: 20px; margin-bottom: 4px;">📦</div>
+      <div style="font-weight: 700; font-size: 13px;">Thủ Kho</div>
+      <div style="font-size: 11px; opacity: 0.8; margin-top: 2px;">nvkho01</div>
+    </div>
+    <!-- Giám đốc -->
+    <div class="demo-badge-card" onclick="autoFill('giamdoc', 'Admin@123')" style="background-color: var(--bql-light); border: 1px solid var(--bql-border); color: var(--bql-dark);">
+      <div style="font-size: 20px; margin-bottom: 4px;">👑</div>
+      <div style="font-weight: 700; font-size: 13px;">Giám Đốc</div>
+      <div style="font-size: 11px; opacity: 0.8; margin-top: 2px;">giamdoc</div>
+    </div>
+    <!-- Quản trị viên -->
+    <div class="demo-badge-card" onclick="autoFill('admin', 'Admin@123')" style="background-color: var(--adm-light); border: 1px solid var(--adm-border); color: var(--adm-dark);">
+      <div style="font-size: 20px; margin-bottom: 4px;">🛡️</div>
+      <div style="font-weight: 700; font-size: 13px;">Quản Trị</div>
+      <div style="font-size: 11px; opacity: 0.8; margin-top: 2px;">admin</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function switchAuthTab(tab) {
+    document.getElementById('btn-login-tab').classList.remove('active');
+    document.getElementById('btn-register-tab').classList.remove('active');
+    
+    if (tab === 'login') {
+      document.getElementById('btn-login-tab').classList.add('active');
+      document.getElementById('login-tab-content').style.display = 'block';
+      document.getElementById('register-tab-content').style.display = 'none';
+    } else {
+      document.getElementById('btn-register-tab').classList.add('active');
+      document.getElementById('login-tab-content').style.display = 'none';
+      document.getElementById('register-tab-content').style.display = 'block';
+    }
+  }
+
+  function autoFill(user, pass) {
+    document.getElementById('login-username').value = user;
+    document.getElementById('login-password').value = pass;
+    switchAuthTab('login');
+  }
+
+  function handleDemoLogin(e) {
+    e.preventDefault();
+    const user = document.getElementById('login-username').value;
+    const pass = document.getElementById('login-password').value;
+    
+    const roleHomeMapping = {
+      'KHACH_HANG': '/san_pham',
+      'NV_KINH_DOANH': '/kinh_doanh/quan_ly_don_hang',
+      'NV_KE_TOAN': '/ke_toan/quan_ly_tai_chinh_va_cong_no',
+      'BAN_QUAN_LY': '/ban_quan_ly/dashboard_tong_quan',
+      'NV_KHO': '/quan_ly_kho/quan_ly_kho',
+      'QUAN_TRI_VIEN': '/quan_tri_vien/quan_ly_tai_khoan'
+    };
+
+    fetch('/api/khach_hang/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: user,
+        password: pass
+      })
+    })
+    .then(res => {
+      if (res.ok) {
+        return res.json();
+      } else {
+        return res.text().then(text => { throw new Error(text); });
+      }
+    })
+    .then(data => {
+      localStorage.setItem('demo_role', data.role);
+      localStorage.setItem('logged_in_name', data.hoTen);
+      localStorage.setItem('logged_in_username', data.username);
+      
+      alert('Đăng nhập thành công với vai trò: ' + data.role + ' (' + data.hoTen + ')', function() {
+        window.location.href = roleHomeMapping[data.role] || '/san_pham';
+      });
+    })
+    .catch(err => {
+      const msg = err.message;
+      if (msg.includes('bị khóa') || msg.includes('phê duyệt') || msg.includes('không tồn tại')) {
+        alert(msg);
+      } else {
+        alert('Đăng nhập không thành công: ' + msg);
+      }
+    });
+  }
+
+  function handleDemoRegister(e) {
+    e.preventDefault();
+    const fullname = document.getElementById('reg-fullname').value;
+    const phone = document.getElementById('reg-phone').value;
+    const pass = document.getElementById('reg-password').value;
+    const confirm = document.getElementById('reg-confirm').value;
+    const address = document.getElementById('reg-address').value;
+    
+    if (pass !== confirm) {
+      alert('Mật khẩu xác nhận không trùng khớp!');
+      return;
+    }
+
+    fetch('/api/khach_hang/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: phone, // using phone as username
+        fullname: fullname,
+        phone: phone,
+        address: address,
+        password: pass
+      })
+    })
+    .then(res => {
+      if (res.ok) {
+        return res.text();
+      } else {
+        return res.text().then(text => { throw new Error(text); });
+      }
+    })
+    .then(msg => {
+      localStorage.setItem('demo_role', 'KHACH_HANG');
+      localStorage.setItem('logged_in_name', fullname);
+      localStorage.setItem('logged_in_username', phone);
+      alert(msg, function() {
+        window.location.href = '/san_pham';
+      });
+    })
+    .catch(err => alert('Đăng ký không thành công: ' + err.message));
+  }
+</script>
+
+</body>
+</html>
