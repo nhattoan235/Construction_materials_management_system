@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vật Liệu Xây Dựng Chất Lượng - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/custom-alert.js"></script>
+  <style>
+    /* Specific styles for the Landing Page matching the user's design screenshot */
+    .landing-header {
+      height: 70px;
+      background-color: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 80px;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+    }
+    
+    .landing-logo-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 18px;
+      color: #2c3e3b;
+    }
+    
+    .landing-logo-box {
+      width: 42px;
+      height: 32px;
+      background-color: #90bdae;
+      color: #ffffff;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+    }
+    
+    .landing-nav {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+    
+    .landing-nav-link {
+      text-decoration: none;
+      color: #718096;
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.2s ease;
+    }
+    
+    .landing-nav-link:hover, .landing-nav-link.active {
+      color: #76a89c;
+    }
+
+    /* Hero Section */
+    .hero-section {
+      background: linear-gradient(180deg, #e5f0ec 0%, #f7fafd 100%);
+      padding: 160px 40px 100px 40px;
+      text-align: center;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .hero-title {
+      font-size: 48px;
+      font-weight: 800;
+      color: #2c3e3b;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+    
+    .hero-desc {
+      font-size: 16px;
+      color: #718096;
+      max-width: 600px;
+      margin: 0 auto 32px auto;
+      line-height: 1.7;
+    }
+    
+    .hero-btn {
+      background-color: #76a89c;
+      color: #ffffff;
+      padding: 12px 28px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background-color 0.2s ease, transform 0.2s ease;
+      text-decoration: none;
+      box-shadow: 0 4px 12px rgba(118, 168, 156, 0.2);
+    }
+    
+    .hero-btn:hover {
+      background-color: #64978c;
+      transform: translateY(-1px);
+    }
+    
+    /* Features Section */
+    .features-section {
+      padding: 80px 80px;
+      background-color: #ffffff;
+      text-align: center;
+    }
+    
+    .section-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #2c3e3b;
+      margin-bottom: 48px;
+      letter-spacing: -0.01em;
+    }
+    
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .feature-card {
+      background-color: #ffffff;
+      border: 1px solid #e5f0ec;
+      border-radius: 12px;
+      padding: 32px 24px;
+      text-align: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01);
+    }
+    
+    .feature-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 20px 25px -5px rgba(118, 168, 156, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+      border-color: #bfdbd5;
+    }
+    
+    .feature-icon-circle {
+      width: 56px;
+      height: 56px;
+      background-color: #e6f0ed;
+      color: #76a89c;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px auto;
+    }
+    
+    .feature-card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #2c3e3b;
+      margin-bottom: 8px;
+    }
+    
+    .feature-card-desc {
+      font-size: 13px;
+      color: #718096;
+      line-height: 1.6;
+    }
+    
+    @media (max-width: 1024px) {
+      .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .landing-header {
+        padding: 0 40px;
+      }
+    }
+    @media (max-width: 640px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+      .hero-title {
+        font-size: 32px;
+      }
+    }
+  </style>
+</head>
+<body style="background-color: #ffffff;">
+
+  <!-- Header -->
+  <header class="landing-header">
+    <div class="landing-logo-block">
+      <div class="landing-logo-box">VL</div>
+      <span>Vật Liệu Xây Dựng</span>
+    </div>
+    
+    <nav>
+      <ul class="landing-nav">
+        <li><a href="/" class="landing-nav-link active">Trang chủ</a></li>
+        <li><a href="/san_pham" class="landing-nav-link">Sản phẩm</a></li>
+        <li><a href="/khach_hang/gio_hang" class="landing-nav-link">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+          Giỏ hàng <span id="headerCartBadge" style="background-color: #e11d48; color: white; border-radius: 50%; font-size: 11px; padding: 2px 6px; margin-left: 4px; display: none;">0</span>
+        </a></li>
+        <li><a href="/login" class="landing-nav-link">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          Đăng nhập
+        </a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <h1 class="hero-title">Vật Liệu Xây Dựng Chất Lượng</h1>
+    <p class="hero-desc">Cung cấp đầy đủ vật liệu xây dựng từ xi măng, gạch, sắt thép đến cát đá với giá cả hợp lý nhất thị trường</p>
+    <a href="/san_pham" class="hero-btn">
+      Xem sản phẩm 
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+    </a>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features-section">
+    <h2 class="section-title">Tại sao chọn chúng tôi?</h2>
+    
+    <div class="features-grid">
+      <!-- Feature 1 -->
+      <div class="feature-card">
+        <div class="feature-icon-circle">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        </div>
+        <h4 class="feature-card-title">Sản phẩm chất lượng</h4>
+        <p class="feature-card-desc">Cam kết chất lượng cao, đảm bảo tiêu chuẩn kỹ thuật hàng đầu.</p>
+      </div>
+      
+      <!-- Feature 2 -->
+      <div class="feature-card">
+        <div class="feature-icon-circle">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10M13 16h6l1.5-3H13v3z"/></svg>
+        </div>
+        <h4 class="feature-card-title">Giao hàng nhanh</h4>
+        <p class="feature-card-desc">Vận chuyển nhanh toàn quốc, giao nhận trực tiếp đến chân công trình.</p>
+      </div>
+      
+      <!-- Feature 3 -->
+      <div class="feature-card">
+        <div class="feature-icon-circle">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        </div>
+        <h4 class="feature-card-title">Bảo hành uy tín</h4>
+        <p class="feature-card-desc">Chính sách bảo hành, đổi trả hàng lỗi rõ ràng, hỗ trợ tận tình 24/7.</p>
+      </div>
+      
+      <!-- Feature 4 -->
+      <div class="feature-card">
+        <div class="feature-icon-circle">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <h4 class="feature-card-title">Giá cả tốt nhất</h4>
+        <p class="feature-card-desc">Giá cạnh tranh cực tốt trên thị trường, nhiều ưu đãi và chiết khấu lớn.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="text-align: center; color: #a0aec0; font-size: 13px; padding: 40px 0; border-top: 1px solid #e2e8f0; background-color: #fafbfc;">
+    &copy; 2026 Cửa hàng Vật liệu Xây dựng Sài Gòn TOÀN PHƯƠNG THIÊN MẠNH. Dự án Thực hành Phân tích Thiết kế Hệ thống.
+  </footer>
+
+  <script th:inline="javascript">
+    function logoutUser() {
+      localStorage.removeItem('logged_in_name');
+      localStorage.removeItem('logged_in_username');
+      localStorage.setItem('demo_role', 'KHACH_HANG');
+    }
+
+    function initUserSession() {
+      const loggedInName = localStorage.getItem('logged_in_name');
+      if (loggedInName) {
+        const navList = document.querySelector('.landing-nav');
+        if (navList) {
+          const loginItem = navList.querySelector('li:last-child');
+          if (loginItem) {
+            loginItem.innerHTML = 
+              '<div style="position: relative; display: inline-block;" id="landingProfileBtn">' +
+                '<div style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #718096; font-size: 14px; font-weight: 500; padding: 4px 8px; border-radius: 8px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor=\'#cbd5e122\'" onmouseout="this.style.backgroundColor=\'transparent\'">' +
+                  '<svg width="30" height="30" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="border-radius: 50%; background-color: #cbd5e1; border: 1px solid #cbd5e188;">' +
+                    '<path d="M18 18C21.3137 18 24 15.3137 24 12C24 8.68629 21.3137 6 18 6C14.6863 6 12 8.68629 12 12C12 15.3137 14.6863 18 18 18Z" fill="#94a3b8"/>' +
+                    '<path d="M18 20C12.4772 20 8 24.4772 8 30H28C28 24.4772 23.5228 20 18 20Z" fill="#94a3b8"/>' +
+                  '</svg>' +
+                  '<span>' + loggedInName + '</span>' +
+                '</div>' +
+                '<!-- Dropdown -->' +
+                '<div class="dropdown-menu" id="landingProfileMenu" style="display: none; position: absolute; top: 38px; right: 0; background-color: #ffffff; border: 1px solid #cbd5e188; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); width: 180px; z-index: 1000; overflow: hidden; padding: 6px 0;">' +
+                  '<a href="/dung_chung/thong_tin_ca_nhan" style="display: block; padding: 10px 16px; font-size: 13px; color: #1e293b; text-decoration: none; font-weight: 500; text-align: left;">' +
+                    'Hồ sơ cá nhân' +
+                  '</a>' +
+                  '<a href="/khach_hang/don_hang_cua_toi" id="landingDropdownOrderLink" style="display: block; padding: 10px 16px; font-size: 13px; color: #1e293b; text-decoration: none; font-weight: 500; text-align: left;">' +
+                    'Đơn hàng của tôi' +
+                  '</a>' +
+                  '<div style="border-top: 1px solid #e2e8f0; margin: 6px 0;"></div>' +
+                  '<a href="/login" onclick="logoutUser()" style="display: block; padding: 10px 16px; font-size: 13px; color: #ef4444; text-decoration: none; font-weight: 600; text-align: left;">' +
+                    'Đăng xuất' +
+                  '</a>' +
+                '</div>' +
+              '</div>';
+            
+            const btn = document.getElementById('landingProfileBtn');
+            const menu = document.getElementById('landingProfileMenu');
+            
+            const role = localStorage.getItem('demo_role');
+            const orderLink = document.getElementById('landingDropdownOrderLink');
+            if (orderLink && role !== 'KHACH_HANG') {
+              orderLink.style.display = 'none';
+            }
+
+            if (btn && menu) {
+              btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+              });
+              document.addEventListener('click', function() {
+                menu.style.display = 'none';
+              });
+            }
+          }
+        }
+      }
+    }
+
+    function updateHeaderCartBadge() {
+      let cart = [];
+      const stored = localStorage.getItem('shopping_cart');
+      if (stored) {
+        try { cart = JSON.parse(stored); } catch(e) {}
+      }
+      const count = cart.reduce((sum, item) => sum + Number(item.soLuong), 0);
+      const badge = document.getElementById('headerCartBadge');
+      if (badge) {
+        if (count > 0) {
+          badge.innerText = count;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    }
+
+    function initPage() {
+      initUserSession();
+      updateHeaderCartBadge();
+
+      // Background check if logged-in account is locked/deleted in real-time
+      const currentUsername = localStorage.getItem('logged_in_username');
+      if (currentUsername) {
+        fetch('/api/khach_hang/profile?username=' + encodeURIComponent(currentUsername))
+          .then(res => {
+            if (res.ok) return res.json();
+            throw new Error('Not found');
+          })
+          .then(data => {
+            if (data.trangThai === 'BI_KHOA') {
+              alert('Tài khoản của bạn đã bị khóa bởi Quản trị viên!', function() {
+                localStorage.removeItem('logged_in_username');
+                localStorage.removeItem('logged_in_name');
+                localStorage.setItem('demo_role', 'KHACH_HANG');
+                window.location.href = '/login';
+              });
+            } else if (data.trangThai === 'CHO_DUYET') {
+              alert('Tài khoản của bạn đang trong trạng thái chờ duyệt!', function() {
+                localStorage.removeItem('logged_in_username');
+                localStorage.removeItem('logged_in_name');
+                localStorage.setItem('demo_role', 'KHACH_HANG');
+                window.location.href = '/login';
+              });
+            }
+          })
+          .catch(err => {
+            alert('Tài khoản của bạn không tồn tại hoặc đã bị xóa khỏi hệ thống!', function() {
+              localStorage.removeItem('logged_in_username');
+              localStorage.removeItem('logged_in_name');
+              localStorage.setItem('demo_role', 'KHACH_HANG');
+              window.location.href = '/login';
+            });
+          });
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPage);
+    } else {
+      initPage();
+    }
+  </script>
+</body>
+</html>
