@@ -39,8 +39,9 @@ public class HangHoa {
     @Column(name = "anh_url", length = 500)
     private String anhUrl;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "trang_thai", nullable = false)
-    private String trangThai = "KINH_DOANH";
+    private TrangThaiHangHoa trangThai = TrangThaiHangHoa.KINH_DOANH;
 
     @Column(name = "ghi_chu", columnDefinition = "TEXT")
     private String ghiChu;
@@ -66,8 +67,8 @@ public class HangHoa {
     public void setGiaBanLe(BigDecimal giaBanLe) { this.giaBanLe = giaBanLe; }
     public BigDecimal getGiaBanSi() { return giaBanSi; }
     public void setGiaBanSi(BigDecimal giaBanSi) { this.giaBanSi = giaBanSi; }
-    public String getTrangThai() { return trangThai; }
-    public void setTrangThai(String trangThai) { this.trangThai = trangThai; }
+    public TrangThaiHangHoa getTrangThai() { return trangThai; }
+    public void setTrangThai(TrangThaiHangHoa trangThai) { this.trangThai = trangThai; }
     public String getAnhUrl() { return anhUrl; }
     public void setAnhUrl(String anhUrl) { this.anhUrl = anhUrl; }
 }

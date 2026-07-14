@@ -19,6 +19,11 @@ import java.util.*;
 @RequestMapping("/api/khach_hang")
 public class CustomerRestController {
 
+    private final org.springframework.security.web.context.SecurityContextRepository securityContextRepository = new org.springframework.security.web.context.DelegatingSecurityContextRepository(
+            new org.springframework.security.web.context.RequestAttributeSecurityContextRepository(),
+            new org.springframework.security.web.context.HttpSessionSecurityContextRepository()
+    );
+
     private final NguoiDungService nguoiDungService;
     private final KhachHangRepository khachHangRepository;
     private final HangHoaService hangHoaService;
@@ -143,7 +148,9 @@ public class CustomerRestController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> login(@RequestBody Map<String, String> body,
+                                   jakarta.servlet.http.HttpServletRequest request,
+                                   jakarta.servlet.http.HttpServletResponse response) {
         String username = body.get("username");
         String password = body.get("password");
 
@@ -182,13 +189,25 @@ public class CustomerRestController {
             return ResponseEntity.badRequest().body("Tài khoản của bạn đang chờ quản trị viên phê duyệt.");
         }
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("username", nd.getUsername());
-        response.put("hoTen", nd.getHoTen());
-        response.put("role", nd.getRole().getName());
-        response.put("trangThai", nd.getTrangThai());
+        // Establish Spring Security Context
+        List<org.springframework.security.core.GrantedAuthority> authorities =
+                org.springframework.security.core.authority.AuthorityUtils.createAuthorityList("ROLE_" + nd.getRole().getName());
+        org.springframework.security.authentication.UsernamePasswordAuthenticationToken authToken =
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(nd.getUsername(), null, authorities);
 
-        return ResponseEntity.ok(response);
+        org.springframework.security.core.context.SecurityContext context =
+                org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authToken);
+        org.springframework.security.core.context.SecurityContextHolder.setContext(context);
+        securityContextRepository.saveContext(context, request, response);
+
+        Map<String, Object> respMap = new HashMap<>();
+        respMap.put("username", nd.getUsername());
+        respMap.put("hoTen", nd.getHoTen());
+        respMap.put("role", nd.getRole().getName());
+        respMap.put("trangThai", nd.getTrangThai());
+
+        return ResponseEntity.ok(respMap);
     }
 
     @PostMapping("/profile/update")

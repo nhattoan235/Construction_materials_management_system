@@ -27,6 +27,11 @@ public class DonHangService {
     }
 
     public DonHang save(DonHang order) {
+        if (order.getKhachHang() == null && 
+            (order.getTenKhachVangLai() == null || order.getTenKhachVangLai().trim().isEmpty() ||
+             order.getSdtKhachVangLai() == null || order.getSdtKhachVangLai().trim().isEmpty())) {
+            throw new IllegalArgumentException("Đơn hàng phải được gán cho một Khách hàng hoặc có đầy đủ thông tin Khách vãng lai (Tên + Số điện thoại).");
+        }
         return donHangRepository.save(order);
     }
 

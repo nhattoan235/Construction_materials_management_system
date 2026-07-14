@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tính toán vật liệu xây dựng - Sài Gòn CMC</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/custom-alert.js"></script>
+  <style>
+    /* Styling overrides for premium feel and layout */
+    .calculator-layout {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 24px;
+      margin-top: 16px;
+    }
+    @media (max-width: 1024px) {
+      .calculator-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .form-control {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background-color: var(--bg-card);
+      color: var(--text-dark);
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--kh-border);
+    }
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+    .results-table th, .results-table td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 13px;
+    }
+    .results-table th {
+      background-color: var(--kh-light);
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .warning-banner {
+      background-color: #fffbeb;
+      border: 1px solid #fef3c7;
+      color: #b45309;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge-status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-status-completed {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+    .badge-status-pending {
+      background-color: #fee2e2;
+      color: #991b1b;
+    }
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background-color: var(--bg-card);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 550px;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+      animation: modalSlide 0.3s ease;
+    }
+    @keyframes modalSlide {
+      from { transform: translateY(-30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      background-color: var(--kh-light);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+    }
+    .modal-body {
+      padding: 20px;
+    }
+    .modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border-color);
+      background-color: var(--kh-light);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<div th:replace="~{bo_cuc/header :: header}"></div>
+
+<div class="app-container">
+  <div th:replace="~{bo_cuc/sidebar :: sidebar}"></div>
+
+  <div class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div>
+        <h4 style="font-weight: 700;">Công Cụ Tính Toán Vật Liệu Xây Dựng</h4>
+        <p class="text-muted-desc">Dựa vào diện tích xây dựng, kết cấu nhà và định mức quy chuẩn hệ thống để lập dự toán khối lượng vật tư.</p>
+      </div>
+    </div>
+
+    <!-- Layout Grid -->
+    <div class="calculator-layout">
+      
+      <!-- Input Panel -->
+      <div class="card" style="height: fit-content;">
+        <div class="card-body" style="padding: 24px;">
+          <h5 style="font-weight: 700; margin-bottom: 16px;">Thông tin công trình</h5>
+          
+          <form id="calcForm" onsubmit="event.preventDefault(); triggerCalculation();">
+            <div class="form-group">
+              <label for="loaiCongTrinh">Loại công trình</label>
+              <select id="loaiCongTrinh" class="form-control" onchange="triggerCalculation()">
+                <option value="NHA_CAP_4">Nhà cấp 4 (Mái tôn/ngói)</option>
+                <option value="NHA_PHO_BTCT" selected>Nhà phố đúc BTCT</option>
+                <option value="BIET_THU">Biệt thự kiểu thái / hiện đại</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="dienTich">Diện tích sàn trệt (m²)</label>
+              <input type="number" id="dienTich" class="form-control" step="0.1" value="100.0" min="1" required oninput="triggerCalculation()">
+            </div>
+
+            <div class="form-group">
+              <label for="soTang">Số tầng xây dựng (bao gồm cả trệt)</label>
+              <input type="number" id="soTang" class="form-control" value="2" min="1" required oninput="triggerCalculation()">
+            </div>
+
+            <!-- Targeted client selection for Business Rep / Admin -->
+            <div class="form-group" id="staff-client-group" style="display: none;">
+              <label for="targetKhachHangId">Khách hàng được tư vấn (Pricing Context)</label>
+              <select id="targetKhachHangId" class="form-control" onchange="triggerCalculation()">
+                <option value="">-- Mặc định (Tự động dựa theo User) --</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; display: none;">Tính toán</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Results & Brand Selector Panel -->
+      <div class="card">
+        <div class="card-body" style="padding: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h5 style="font-weight: 700; margin: 0;">Bảng Dự Toán Vật Tư Vật Liệu</h5>
+            <div id="completenessBadge"></div>
+          </div>
+
+          <!-- Alert Banner if estimation incomplete -->
+          <div class="warning-banner" id="incompleteBanner" style="display: none;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <span id="incompleteMsg">Đang tính toán...</span>
+          </div>
+
+          <!-- Main results table -->
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th>Vật liệu</th>
+                <th>Khối lượng ước tính</th>
+                <th>Thương hiệu / Sản phẩm chọn lọc</th>
+                <th>Đơn giá</th>
+                <th>Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody id="resultsTableBody">
+              <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-muted);">Vui lòng nhập thông tin công trình để tính toán.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <span class="text-muted" style="font-size: 13px;">Tổng dự toán ước tính:</span>
+              <h3 style="font-weight: 800; color: var(--text-main); margin-top: 4px;" id="totalEstimatedPrice">0đ</h3>
+            </div>
+            
+            <div class="flex-gap-8">
+              <button class="btn btn-secondary" onclick="addToCart()" id="btnAddToCart" disabled>
+                Thêm vào giỏ hàng
+              </button>
+              <button class="btn btn-primary" onclick="openOrderModal()" id="btnCreateDraft" disabled>
+                Lập đơn hàng nháp
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Draft Order Dialog Modal -->
+<div class="modal" id="orderModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>Tạo Đơn Hàng Nháp Từ Dự Toán</span>
+      <button onclick="closeOrderModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted);">&times;</button>
+    </div>
+    <div class="modal-body">
+      <!-- Guest or Membership Switcher (Visible to Sales reps only) -->
+      <div id="sales-mode-selector" style="display: none; margin-bottom: 16px;">
+        <div style="display: flex; gap: 12px; border-bottom: 2px solid var(--border-subtle); padding-bottom: 8px; margin-bottom: 16px;">
+          <button id="tabGuest" class="tab-btn active" style="border: none; background: none; font-weight: 700; cursor: pointer; color: var(--text-main);" onclick="switchOrderMode('GUEST')">Khách Vãng Lai</button>
+          <button id="tabMember" class="tab-btn" style="border: none; background: none; font-weight: 500; cursor: pointer; color: var(--text-muted);" onclick="switchOrderMode('MEMBER')">Khách Thành Viên</button>
+        </div>
+      </div>
+
+      <form id="orderForm" onsubmit="event.preventDefault(); submitDraftOrder();">
+        <!-- Guest Client Info -->
+        <div id="guest-info-fields">
+          <div class="form-group">
+            <label for="tenKhachVangLai">Họ tên khách hàng</label>
+            <input type="text" id="tenKhachVangLai" class="form-control" placeholder="Ví dụ: Nguyễn Văn A">
+          </div>
+          <div class="form-group">
+            <label for="sdtKhachVangLai">Số điện thoại liên hệ</label>
+            <input type="text" id="sdtKhachVangLai" class="form-control" placeholder="Ví dụ: 0987654321">
+          </div>
+        </div>
+
+        <!-- Membership Selection -->
+        <div id="member-info-fields" style="display: none;">
+          <div class="form-group">
+            <label for="orderKhachHangId">Chọn thành viên</label>
+            <select id="orderKhachHangId" class="form-control">
+              <option value="">-- Chọn khách hàng --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="diaChiGiao">Địa chỉ giao hàng</label>
+          <input type="text" id="diaChiGiao" class="form-control" required placeholder="Địa chỉ công trình thi công...">
+        </div>
+
+        <div class="form-group">
+          <label for="ghiChu">Ghi chú đơn hàng</label>
+          <textarea id="ghiChu" class="form-control" rows="3" placeholder="Yêu cầu giao hàng, phương tiện vận chuyển..."></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOrderModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="submitDraftOrder()">Tạo đơn hàng</button>
+    </div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+  // Inject authentication state from server via Thymeleaf (prevents IDOR via client-side spoofing)
+  const IS_AUTHENTICATED = /*[[${#authorization.expression('isAuthenticated()')}]]*/ false;
+
+  let selectedProducts = {}; // key: loaiVatLieu, value: hangHoaId
+  let calculationsResponse = null;
+  let allCustomers = [];
+  let currentOrderMode = 'GUEST'; // or 'MEMBER'
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const role = localStorage.getItem('demo_role') || 'KHACH_HANG';
+    if (role === 'NV_KINH_DOANH' || role === 'BAN_QUAN_LY' || role === 'QUAN_TRI_VIEN') {
+      document.getElementById('staff-client-group').style.display = 'block';
+      document.getElementById('sales-mode-selector').style.display = 'block';
+      fetchCustomers();
+    }
+    
+    // Trigger initial calculation
+    triggerCalculation();
+  });
+
+  function fetchCustomers() {
+    fetch('/api/sales/customers', { credentials: 'include' })
+      .then(res => {
+        if (res.ok) return res.json();
+        return [];
+      })
+      .then(data => {
+        allCustomers = data;
+        const targetSelect = document.getElementById('targetKhachHangId');
+        const orderSelect = document.getElementById('orderKhachHangId');
+        
+        data.forEach(kh => {
+          const opt1 = new Option(`${kh.hoTen} (${kh.soDienThoai}) - [${kh.maKhachHang}]`, kh.id);
+          const opt2 = new Option(`${kh.hoTen} (${kh.soDienThoai}) - [${kh.maKhachHang}]`, kh.id);
+          targetSelect.add(opt1);
+          orderSelect.add(opt2);
+        });
+      });
+  }
+
+  function triggerCalculation() {
+    const dienTich = parseFloat(document.getElementById('dienTich').value);
+    const soTang = parseInt(document.getElementById('soTang').value);
+    const loaiCongTrinh = document.getElementById('loaiCongTrinh').value;
+    const targetKhachHangId = document.getElementById('targetKhachHangId').value;
+
+    if (isNaN(dienTich) || dienTich <= 0 || isNaN(soTang) || soTang <= 0) {
+      return;
+    }
+
+    const payload = {
+      dienTich: dienTich,
+      soTang: soTang,
+      loaiCongTrinh: loaiCongTrinh,
+      targetKhachHangId: targetKhachHangId ? parseInt(targetKhachHangId) : null,
+      sanPhamLinhHoat: selectedProducts
+    };
+
+    fetch('/api/vat-lieu/tinh-toan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'include'
+    })
+    .then(res => {
+      if (res.ok) return res.json();
+      throw new Error('Tính toán thất bại. Hãy kiểm tra các tham số.');
+    })
+    .then(data => {
+      calculationsResponse = data;
+      renderEstimates(data);
+    })
+    .catch(err => {
+      console.error(err);
+      const tbody = document.getElementById('resultsTableBody');
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #ef4444; font-weight: 600;">${err.message}</td></tr>`;
+    });
+  }
+
+  function renderEstimates(data) {
+    const tbody = document.getElementById('resultsTableBody');
+    tbody.innerHTML = '';
+
+    // Badges & Completeness
+    const badgeContainer = document.getElementById('completenessBadge');
+    const banner = document.getElementById('incompleteBanner');
+    
+    if (data.tinhDayDu) {
+      badgeContainer.innerHTML = `<span class="badge-status badge-status-completed">✓ Hoàn tất báo giá</span>`;
+      banner.style.display = 'none';
+      document.getElementById('btnAddToCart').disabled = false;
+      document.getElementById('btnCreateDraft').disabled = false;
+    } else {
+      badgeContainer.innerHTML = `<span class="badge-status badge-status-pending">⚠️ Chưa hoàn thành (${data.soDongChuaHoanTat} dòng)</span>`;
+      banner.style.display = 'flex';
+
+      // Check if there are warnings in rows (errors like out of stock/invalid categories)
+      const hasErrors = data.chiTietVatLieu.some(item => item.canhBao != null);
+
+      let unfinishedMsg;
+      if (!IS_AUTHENTICATED) {
+        // Anonymous user: all prices are hidden by design
+        unfinishedMsg = `🔒 Bạn chưa đăng nhập. Vui lòng đăng nhập để xem đơn giá và thành tiền từng loại vật liệu.`;
+      } else if (hasErrors) {
+        unfinishedMsg = `Có sản phẩm bị lỗi hoặc đã ngừng kinh doanh. Vui lòng kiểm tra lại cấu hình thương hiệu bên dưới.`;
+      } else {
+        unfinishedMsg = `Vui lòng chọn đầy đủ thương hiệu/sản phẩm để hoàn tất tính toán chi phí và kích hoạt chức năng đặt hàng.`;
+      }
+
+      document.getElementById('incompleteMsg').innerText = unfinishedMsg;
+      document.getElementById('btnAddToCart').disabled = true;
+      document.getElementById('btnCreateDraft').disabled = true;
+    }
+
+    // Render Rows
+    data.chiTietVatLieu.forEach((item, index) => {
+      const row = document.createElement('tr');
+
+      // Col 1: Material name & config note
+      const colName = document.createElement('td');
+      colName.innerHTML = `<strong>${item.tenLoaiVatLieu}</strong><br><small style="color: var(--text-muted);">${item.ghiChuDinhMuc || ''}</small>`;
+      row.appendChild(colName);
+
+      // Col 2: Quantity & unit
+      const colQty = document.createElement('td');
+      colQty.innerText = `${item.khoiLuongUocTinh} ${item.donViTinh}`;
+      row.appendChild(colQty);
+
+      // Col 3: Brand Dropdown Selector
+      const colDropdown = document.createElement('td');
+      const select = document.createElement('select');
+      select.className = 'form-control';
+      select.style.padding = '6px 10px';
+      select.style.fontSize = '12px';
+      select.innerHTML = `<option value="">-- Chưa chọn thương hiệu --</option>`;
+      
+      // Store reference to select to populate asynchronously
+      colDropdown.appendChild(select);
+      row.appendChild(colDropdown);
+
+      // Populate select dropdown with active products in category
+      populateDropdown(select, item.loaiVatLieu, item.hangHoaId);
+
+      select.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val) {
+          selectedProducts[item.loaiVatLieu] = parseInt(val);
+        } else {
+          delete selectedProducts[item.loaiVatLieu];
+        }
+        triggerCalculation();
+      });
+
+      // Col 4: Price
+      const colPrice = document.createElement('td');
+      if (item.canhBao) {
+        colPrice.innerHTML = `<span style="color: #ef4444; font-weight: 600;">Lỗi</span><br><small style="color: #ef4444; display: block; max-width: 150px;">${item.canhBao}</small>`;
+      } else if (item.donGia) {
+        colPrice.innerText = formatMoney(item.donGia);
+      } else if (!IS_AUTHENTICATED) {
+        // Anonymous: show login prompt instead of '-'
+        colPrice.innerHTML = `<a href="/login" style="color: var(--kh-border); font-size: 12px; white-space: nowrap;" title="Đăng nhập để xem giá">🔒 Đăng nhập để xem giá</a>`;
+      } else {
+        colPrice.innerText = '—';
+      }
+      row.appendChild(colPrice);
+
+      // Col 5: Subtotal
+      const colSub = document.createElement('td');
+      if (item.canhBao) {
+        colSub.innerText = '—';
+      } else if (item.thanhTien) {
+        colSub.innerText = formatMoney(item.thanhTien);
+      } else {
+        colSub.innerText = '—';
+      }
+      row.appendChild(colSub);
+
+      tbody.appendChild(row);
+    });
+
+    // Total Estimated Price
+    if (data.tongTien) {
+      document.getElementById('totalEstimatedPrice').innerText = formatMoney(data.tongTien);
+    } else if (!IS_AUTHENTICATED) {
+      document.getElementById('totalEstimatedPrice').innerHTML = `<a href="/login" style="color: var(--kh-border); font-size: 14px;">🔒 Đăng nhập để xem tổng chi phí</a>`;
+    } else {
+      document.getElementById('totalEstimatedPrice').innerText = 'Chưa đầy đủ dữ liệu';
+    }
+  }
+
+  // Caching mechanism to prevent multiple redundant fetches for category products
+  const categoryProductsCache = {};
+
+  function populateDropdown(selectElement, loaiVatLieu, selectedId) {
+    const targetKhachHangId = document.getElementById('targetKhachHangId').value;
+    const cacheKey = `${loaiVatLieu}_${targetKhachHangId || 'default'}`;
+
+    if (categoryProductsCache[cacheKey]) {
+      fillOptions(selectElement, categoryProductsCache[cacheKey], selectedId);
+      return;
+    }
+
+    let url = `/api/vat-lieu/danh-sach-san-pham?loaiVatLieu=${encodeURIComponent(loaiVatLieu)}`;
+    if (targetKhachHangId) {
+      url += `&khachHangId=${targetKhachHangId}`;
+    }
+
+    fetch(url, { credentials: 'include' })
+      .then(res => res.json())
+      .then(products => {
+        categoryProductsCache[cacheKey] = products;
+        fillOptions(selectElement, products, selectedId);
+      })
+      .catch(err => console.error(err));
+  }
+
+  function fillOptions(selectElement, products, selectedId) {
+    products.forEach(p => {
+      const opt = new Option(`${p.tenHang} (${p.quyCach || ''}) - ${formatMoney(p.donGia)}`, p.id);
+      if (p.id === selectedId) {
+        opt.selected = true;
+      }
+      selectElement.add(opt);
+    });
+  }
+
+  function addToCart() {
+    if (!calculationsResponse || !calculationsResponse.tinhDayDu) return;
+    
+    // Add all selected products to localStorage shopping cart
+    const shoppingCart = JSON.parse(localStorage.getItem('shopping_cart') || '[]');
+    
+    calculationsResponse.chiTietVatLieu.forEach(item => {
+      const existing = shoppingCart.find(x => x.hangHoaId === item.hangHoaId);
+      if (existing) {
+        existing.soLuong = parseFloat(existing.soLuong) + parseFloat(item.khoiLuongUocTinh);
+      } else {
+        shoppingCart.push({
+          hangHoaId: item.hangHoaId,
+          tenHang: item.tenHangHoa,
+          soLuong: item.khoiLuongUocTinh,
+          donGia: item.donGia
+        });
+      }
+    });
+
+    localStorage.setItem('shopping_cart', JSON.stringify(shoppingCart));
+    
+    // Sync cart UI badge
+    if (typeof updateSidebarCartBadge === 'function') {
+      updateSidebarCartBadge();
+    }
+
+    alert('Đã thêm toàn bộ danh mục vật liệu ước tính vào giỏ hàng thành công!');
+  }
+
+  function openOrderModal() {
+    const role = localStorage.getItem('demo_role') || 'KHACH_HANG';
+    if (role === 'KHACH_HANG') {
+      // Regular customer - autofill profile details
+      document.getElementById('guest-info-fields').style.display = 'none';
+      document.getElementById('member-info-fields').style.display = 'none';
+      
+      const customName = localStorage.getItem('logged_in_name') || 'Nguyễn Văn Khách';
+      document.getElementById('tenKhachVangLai').value = customName;
+      document.getElementById('sdtKhachVangLai').value = '0901234567';
+    } else {
+      // Salesperson - toggle modes
+      switchOrderMode('GUEST');
+    }
+    
+    document.getElementById('orderModal').style.display = 'flex';
+  }
+
+  function closeOrderModal() {
+    document.getElementById('orderModal').style.display = 'none';
+  }
+
+  function switchOrderMode(mode) {
+    currentOrderMode = mode;
+    const tabGuest = document.getElementById('tabGuest');
+    const tabMember = document.getElementById('tabMember');
+    
+    if (mode === 'GUEST') {
+      tabGuest.className = 'tab-btn active';
+      tabGuest.style.fontWeight = '700';
+      tabGuest.style.color = 'var(--text-main)';
+      
+      tabMember.className = 'tab-btn';
+      tabMember.style.fontWeight = '500';
+      tabMember.style.color = 'var(--text-muted)';
+      
+      document.getElementById('guest-info-fields').style.display = 'block';
+      document.getElementById('member-info-fields').style.display = 'none';
+    } else {
+      tabMember.className = 'tab-btn active';
+      tabMember.style.fontWeight = '700';
+      tabMember.style.color = 'var(--text-main)';
+      
+      tabGuest.className = 'tab-btn';
+      tabGuest.style.fontWeight = '500';
+      tabGuest.style.color = 'var(--text-muted)';
+      
+      document.getElementById('guest-info-fields').style.display = 'none';
+      document.getElementById('member-info-fields').style.display = 'block';
+    }
+  }
+
+  function submitDraftOrder() {
+    const role = localStorage.getItem('demo_role') || 'KHACH_HANG';
+    const diaChiGiao = document.getElementById('diaChiGiao').value;
+    const ghiChu = document.getElementById('ghiChu').value;
+    
+    let payload = {
+      diaChiGiao: diaChiGiao,
+      ghiChu: ghiChu,
+      chiTiet: calculationsResponse.chiTietVatLieu.map(item => ({
+        hangHoaId: item.hangHoaId,
+        soLuong: item.khoiLuongUocTinh
+      }))
+    };
+
+    if (role === 'KHACH_HANG') {
+      // Logged in customer: automatically binds khachHangId resolved on backend,
+      // but let's see if we can resolve it directly
+      const currentUsername = localStorage.getItem('logged_in_username');
+      // Backend handles setting the client based on security context
+    } else {
+      // Sales representative context
+      if (currentOrderMode === 'GUEST') {
+        const ten = document.getElementById('tenKhachVangLai').value;
+        const sdt = document.getElementById('sdtKhachVangLai').value;
+        if (!ten.trim() || !sdt.trim()) {
+          alert('Vui lòng điền tên và số điện thoại của khách vãng lai.');
+          return;
+        }
+        payload.tenKhachVangLai = ten;
+        payload.sdtKhachVangLai = sdt;
+      } else {
+        const khId = document.getElementById('orderKhachHangId').value;
+        if (!khId) {
+          alert('Vui lòng chọn khách hàng thành viên.');
+          return;
+        }
+        payload.khachHangId = parseInt(khId);
+      }
+    }
+
+    fetch('/api/vat-lieu/dat-hang-nhap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'include'
+    })
+    .then(res => {
+      if (res.ok) return res.json();
+      return res.json().then(err => { throw new Error(err.message || 'Lỗi lập đơn hàng.'); });
+    })
+    .then(data => {
+      closeOrderModal();
+      alert(`Lập đơn hàng nháp thành công!\nMã đơn hàng: ${data.maDonHang}\nTổng số tiền tạm tính: ${formatMoney(data.tongTien)}`);
+      
+      // Clean selected brands
+      selectedProducts = {};
+      document.getElementById('calcForm').reset();
+      triggerCalculation();
+    })
+    .catch(err => {
+      alert(err.message);
+    });
+  }
+
+  function formatMoney(amount) {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+  }
+</script>
+
+</body>
+</html>

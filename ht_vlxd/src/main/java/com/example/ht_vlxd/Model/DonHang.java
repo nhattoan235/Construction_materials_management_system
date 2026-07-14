@@ -15,8 +15,14 @@ public class DonHang {
     private String maDonHang;
 
     @ManyToOne
-    @JoinColumn(name = "khach_hang_id", nullable = false)
+    @JoinColumn(name = "khach_hang_id", nullable = true)
     private KhachHang khachHang;
+
+    @Column(name = "ten_khach_vang_lai", length = 150)
+    private String tenKhachVangLai;
+
+    @Column(name = "sdt_khach_vang_lai", length = 20)
+    private String sdtKhachVangLai;
 
     @ManyToOne
     @JoinColumn(name = "nv_kinh_doanh_id")
@@ -54,6 +60,10 @@ public class DonHang {
     public void setMaDonHang(String maDonHang) { this.maDonHang = maDonHang; }
     public KhachHang getKhachHang() { return khachHang; }
     public void setKhachHang(KhachHang khachHang) { this.khachHang = khachHang; }
+    public String getTenKhachVangLai() { return tenKhachVangLai; }
+    public void setTenKhachVangLai(String tenKhachVangLai) { this.tenKhachVangLai = tenKhachVangLai; }
+    public String getSdtKhachVangLai() { return sdtKhachVangLai; }
+    public void setSdtKhachVangLai(String sdtKhachVangLai) { this.sdtKhachVangLai = sdtKhachVangLai; }
     public NguoiDung getNvKinhDoanh() { return nvKinhDoanh; }
     public void setNvKinhDoanh(NguoiDung nvKinhDoanh) { this.nvKinhDoanh = nvKinhDoanh; }
     public LocalDateTime getNgayDat() { return ngayDat; }

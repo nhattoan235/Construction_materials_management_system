@@ -10,16 +10,17 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableWebSecurity
-public class SecurityConfig {
-
-    @Bean
+public class SecurityConfig {    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll() // Allow all requests to check layout in prototype
+                .anyRequest().permitAll()
             )
             .csrf(csrf -> csrf.disable())
-            .headers(headers -> headers.frameOptions(frame -> frame.disable()));
+            .headers(headers -> headers.frameOptions(frame -> frame.disable()))
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.IF_REQUIRED)
+            );
         return http.build();
     }
 

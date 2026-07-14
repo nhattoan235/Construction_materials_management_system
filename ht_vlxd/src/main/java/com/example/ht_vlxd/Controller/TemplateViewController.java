@@ -2,6 +2,7 @@ package com.example.ht_vlxd.Controller;
 
 import com.example.ht_vlxd.Model.DanhMuc;
 import com.example.ht_vlxd.Model.HangHoa;
+import com.example.ht_vlxd.Model.TrangThaiHangHoa;
 import com.example.ht_vlxd.Service.DanhMucService;
 import com.example.ht_vlxd.Service.HangHoaService;
 import org.springframework.stereotype.Controller;
@@ -52,6 +53,12 @@ public class TemplateViewController {
     @GetMapping("/dung_chung/thong_tin_ca_nhan")
     public String profile() {
         return "dung_chung/thong_tin_ca_nhan";
+    }
+
+    @GetMapping("/dung_chung/calculator")
+    public String calculator(Model model) {
+        model.addAttribute("danhMucs", danhMucService.getAll());
+        return "dung_chung/calculator";
     }
 
     @GetMapping("/khach_hang/don_hang_cua_toi")
@@ -146,7 +153,7 @@ public class TemplateViewController {
         } else {
             hangHoa.setAnhUrl("📦");
         }
-        hangHoa.setTrangThai("KINH_DOANH");
+        hangHoa.setTrangThai(TrangThaiHangHoa.KINH_DOANH);
         hangHoaService.save(hangHoa);
 
         return "redirect:/kinh_doanh/danh_muc_hang_hoa";
