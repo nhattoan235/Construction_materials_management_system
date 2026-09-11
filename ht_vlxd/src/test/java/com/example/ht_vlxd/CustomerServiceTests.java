@@ -1,10 +1,8 @@
 package com.example.ht_vlxd;
 
-import com.example.ht_vlxd.Model.*;
-import com.example.ht_vlxd.Repository.*;
-import com.example.ht_vlxd.Service.DonHangService;
-import com.example.ht_vlxd.Service.HangHoaService;
-import com.example.ht_vlxd.Service.NguoiDungService;
+import com.example.ht_vlxd.Service.sales.DonHangService;
+import com.example.ht_vlxd.Service.product.HangHoaService;
+import com.example.ht_vlxd.Service.auth.NguoiDungService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

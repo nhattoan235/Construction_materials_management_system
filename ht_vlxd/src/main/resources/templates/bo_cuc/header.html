@@ -7,14 +7,14 @@
 
 <div th:fragment="header" class="top-navbar">
   <script src="/js/custom-alert.js"></script>
-  <div class="brand-section">
+  <a href="/" class="brand-section" style="text-decoration: none;">
     <div class="brand-logo">G</div>
     <div class="brand-name">Hệ thống Quản lý VLXD Sài Gòn CMC</div>
-  </div>
+  </a>
   
   <div class="user-section">
     <!-- Prototype Role Selector -->
-    <div class="flex-gap-8" style="background-color: #f1f5f9; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border-color);">
+    <div class="flex-gap-8" style="display: none !important; background-color: #f1f5f9; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border-color);">
       <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Vai trò (Demo):</span>
       <select id="demoRoleSelector" onchange="switchDemoRole(this.value)" style="border: none; background: none; font-size: 13px; font-weight: 600; color: var(--text-dark); cursor: pointer; outline: none;">
         <option value="KHACH_HANG">Khách Hàng</option>
@@ -120,36 +120,47 @@
       };
 
       const user = defaultUsers[role];
+      const performRedirect = () => {
+        updateNavbarRoleUI(role);
+        if (typeof updateSidebarMenu === 'function') {
+          updateSidebarMenu(role);
+        }
+        let currentPath = window.location.pathname;
+        if (currentPath === '/login' || currentPath === '/register' || currentPath === '/auth') {
+          return;
+        }
+        const roleHomeMap = {
+          'KHACH_HANG': '/khach_hang/don_hang_cua_toi',
+          'NV_KINH_DOANH': '/kinh_doanh/quan_ly_don_hang',
+          'NV_KE_TOAN': '/ke_toan/quan_ly_tai_chinh_va_cong_no',
+          'BAN_QUAN_LY': '/ban_quan_ly/dashboard_tong_quan',
+          'NV_KHO': '/quan_ly_kho/quan_ly_kho',
+          'QUAN_TRI_VIEN': '/quan_tri_vien/quan_ly_tai_khoan'
+        };
+        if (roleHomeMap[role] && currentPath !== roleHomeMap[role]) {
+           window.location.href = roleHomeMap[role];
+        } else {
+           window.location.reload();
+        }
+      };
+
       if (user) {
         localStorage.setItem('logged_in_username', user.username);
         localStorage.setItem('logged_in_name', user.name);
+        fetch('/api/khach_hang/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: user.username, password: 'Admin@123' })
+        }).then(() => {
+          performRedirect();
+        }).catch(err => {
+          console.error('Error logging in demo role:', err);
+          performRedirect();
+        });
       } else {
         localStorage.removeItem('logged_in_name');
         localStorage.removeItem('logged_in_username');
-      }
-      
-      updateNavbarRoleUI(role);
-      
-      if (typeof updateSidebarMenu === 'function') {
-        updateSidebarMenu(role);
-      }
-      
-      let currentPath = window.location.pathname;
-      if (currentPath === '/login' || currentPath === '/register' || currentPath === '/auth') {
-        return;
-      }
-      
-      const roleHomeMap = {
-        'KHACH_HANG': '/khach_hang/don_hang_cua_toi',
-        'NV_KINH_DOANH': '/kinh_doanh/quan_ly_don_hang',
-        'NV_KE_TOAN': '/ke_toan/quan_ly_tai_chinh_va_cong_no',
-        'BAN_QUAN_LY': '/ban_quan_ly/dashboard_tong_quan',
-        'NV_KHO': '/quan_ly_kho/quan_ly_kho',
-        'QUAN_TRI_VIEN': '/quan_tri_vien/quan_ly_tai_khoan'
-      };
-      
-      if (roleHomeMap[role] && currentPath !== roleHomeMap[role]) {
-         window.location.href = roleHomeMap[role];
+        performRedirect();
       }
     }
 
